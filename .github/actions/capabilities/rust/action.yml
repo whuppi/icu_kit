@@ -1,0 +1,111 @@
+name: Rust
+description: Install Rust toolchain + sccache for fast builds
+
+inputs:
+  targets:
+    description: Extra Rust targets (comma-separated)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Submodule cache key
+      id: sub
+      shell: bash
+      run: |
+        echo "icu4x=$(git rev-parse HEAD:vendor/icu4x)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache cargo registry
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+        key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ steps.sub.outputs.icu4x }}
+        restore-keys: cargo-${{ runner.os }}-${{ runner.arch }}-
+
+    # Drive the runner's pre-installed rustup directly. Do not swap in
+    # dtolnay/rust-toolchain: it ships no version tags, so it can only be
+    # pinned to a rolling master SHA.
+    - name: Install Rust toolchain
+      shell: bash
+      env:
+        INPUTS_TARGETS: ${{ inputs.targets }}
+      run: |
+        rustup toolchain install stable --profile minimal --no-self-update
+        rustup default stable
+        # targets input is comma- or space-separated; empty → no extra targets
+        for t in $(tr ',' ' ' <<< "$INPUTS_TARGETS"); do
+          rustup target add "$t"
+        done
+        rustc --version
+    - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+    - shell: bash
+      env:
+        STEPS_SUB_OUTPUTS_ICU4X: ${{ steps.sub.outputs.icu4x }}
+      run: |
+        {
+          echo "SCCACHE_GHA_ENABLED=true"
+          echo "RUSTC_WRAPPER=sccache"
+          echo "CARGO_INCREMENTAL=0"
+          # crates.io fetches occasionally drop mid-transfer on CI (curl 56,
+          # connection reset). cargo's default is 3 retries; 10 rides out a
+          # short registry blip instead of failing the whole build.
+          echo "CARGO_NET_RETRY=10"
+          # HTTP/2 multiplexing intermittently fails crates.io with a framing
+          # layer error (curl 16) that the retry above doesn't catch; HTTP/1.1
+          # avoids that class.
+          echo "CARGO_HTTP_MULTIPLEXING=false"
+        } >> "$GITHUB_ENV"
+        # Submodule pin arrives via env (hoisted from step outputs). Heredoc
+        # with a random delimiter so a stray newline can't inject entries.
+        # Consumed by make-target's xcode cache key and the wasm cache key.
+        {
+          echo "SUBMODULE_ICU4X<<__SUB_ICU4X__"
+          echo "${STEPS_SUB_OUTPUTS_ICU4X}"
+          echo "__SUB_ICU4X__"
+        } >> "$GITHUB_ENV"
+
+    # sccache for build hooks (dart-lang/native#3396 workaround).
+    #
+    # hooks_runner strips SCCACHE_* and RUSTC_WRAPPER env vars before
+    # spawning build.dart. Two workarounds keep sccache working:
+    #
+    # 1. Pre-start the server with SCCACHE_IDLE_TIMEOUT=0 while GHA
+    #    env vars exist. The server reads config at startup and persists.
+    #    Default idle timeout (600s) is too short — the 25+ min gap
+    #    (SDK download + emulator boot + Gradle) kills the server.
+    #
+    # 2. Write rustc-wrapper to $CARGO_HOME/config.toml. Cargo reads
+    #    this file automatically. hooks_runner can't strip a file.
+    #    HOME is in the allowlist, so cargo finds ~/.cargo/config.toml.
+    - name: Configure sccache for build hooks
+      shell: bash
+      run: |
+        export SCCACHE_IDLE_TIMEOUT=0
+        sccache --start-server || true
+
+        SCCACHE_BIN="$(which sccache)"
+        # Cargo on Windows needs a drive-letter path, not Git Bash /c/...
+        # Use cygpath -m for forward-slash Windows path (C:/...) which
+        # works in TOML without escaping backslashes.
+        if command -v cygpath &>/dev/null; then
+          SCCACHE_BIN="$(cygpath -m "$SCCACHE_BIN")"
+        fi
+        mkdir -p "$HOME/.cargo"
+        CFG="$HOME/.cargo/config.toml"
+        # Insert under [build] (a second header is a TOML error) with awk, not a
+        # GNU one-line sed append; that form broke on macOS. Pass the path via
+        # ENVIRON, not awk -v, which would interpret a backslash in it.
+        if [ -f "$CFG" ] && grep -q '^\[build\]' "$CFG"; then
+          sk_w="$SCCACHE_BIN" awk '
+            BEGIN { w = ENVIRON["sk_w"] }
+            { print }
+            /^\[build\]/ && !seen { print "rustc-wrapper = \"" w "\""; seen=1 }
+          ' "$CFG" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG" || rm -f "$CFG.tmp"
+        else
+          printf '\n[build]\nrustc-wrapper = "%s"\n' "$SCCACHE_BIN" >> "$CFG"
+        fi
+        echo "sccache: server started, cargo config written ($SCCACHE_BIN)"

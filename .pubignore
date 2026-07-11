@@ -1,0 +1,47 @@
+# Published-archive excludes (repo keeps these; consumers never need them).
+#
+# A root .pubignore REPLACES the root .gitignore for pub packaging (pub
+# uses whichever file a directory has, per-directory). So every root-level
+# exclude that matters for the tarball must be re-declared here — the
+# .gitignore's build-artifact patterns do NOT apply once this file exists.
+# Verified with `dart pub publish --dry-run`.
+
+# Tests + the UCD/CLDR corpus data + the lean-flavor fixture stay out of
+# the pub download — none is in any consumer import graph.
+test/
+test_fixtures/
+
+# Banner: ship only the optimized .webp files the README embeds. The heavy
+# 3x PNG sources stay tracked in git (org-quality preservation) but out of
+# the published download — nothing references them on pub.dev.
+assets/banner_dark.png
+assets/banner_light.png
+
+# The vendored ICU4X submodule is far past pub.dev's archive limit (unlike
+# pdf_manipulator's vendor, which ships in its tarball). pub.dev consumers
+# get hash-verified prebuilt binaries via the hook's download waterfall;
+# source builds are for git/path checkouts, where the submodule is real.
+vendor/
+
+# The lean example is a build-config shell (its pubspec IS the lean
+# switch) that re-runs example/'s code + suites — repo tooling, not a
+# second consumer demo. pub.dev renders example/ only.
+example_lean/
+
+# Build outputs that live in the package tree (would otherwise ship
+# because .pubignore displaced the .gitignore that excludes them).
+web_assets/icu4x.wasm
+web_assets/icu4x-lean.wasm
+example/web/icu_kit/
+example/build/
+example/.dart_tool/
+example/test/
+example/integration_test/
+example/test_support/
+target/
+out/
+test-results/
+*.dylib
+*.so
+*.dll
+*.a

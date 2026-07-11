@@ -1,0 +1,35 @@
+name: icu_kit_example_test_support
+description: >-
+  Reusable UI-test harness (robot pattern + device matrix), the example
+  app's robots, AND the journey + smoke suite bodies themselves. Both
+  app roots — example/ (bundled binary) and example_lean/ (lean binary)
+  — run the identical suites through thin test-file runners, so the two
+  flavors can never drift apart in coverage.
+publish_to: none
+version: 0.0.0
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  # The suite bodies assert against icu_kit types directly.
+  icu_kit:
+    path: ../../
+  integration_test:
+    sdk: flutter
+  # The example app under test — robots drive its main() and reuse its
+  # widget keys. This forms a path-dependency cycle with the example's
+  # dev_dependency on this package; pub allows it for path
+  # dev-dependencies (they're outside the published graph).
+  icu_kit_example:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

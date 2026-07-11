@@ -1,0 +1,10 @@
+# Default to the VM (the native lean-binary suite); the lean-wasm chrome
+# suite opts in via -p chrome (make test-web-lean).
+platforms: [vm]
+
+# Same chrome settings as the root package — CI runners have no SUID
+# sandbox.
+override_platforms:
+  chrome:
+    settings:
+      arguments: --no-sandbox --disable-gpu

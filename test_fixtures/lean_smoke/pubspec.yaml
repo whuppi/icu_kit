@@ -1,0 +1,25 @@
+name: lean_smoke
+description: >-
+  Lean-binary integration fixture. Running `dart test` HERE makes this
+  package the hooks root, so the user_define below drives icu_kit's build
+  hook to produce the LEAN binary (no compiled_data) — the one flavor the
+  main suite (always fat) can never exercise. See test/lean_smoke_test.dart.
+publish_to: none
+version: 0.0.0
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+# THE point of this fixture: the single switch, flipped.
+hooks:
+  user_defines:
+    icu_kit:
+      bundleCldrData: false
+
+dependencies:
+  icu_kit:
+    path: ../../
+
+dev_dependencies:
+  test: ^1.31.0
+  lints: ^6.1.0

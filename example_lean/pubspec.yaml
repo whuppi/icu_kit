@@ -1,0 +1,53 @@
+name: icu_kit_example_lean
+description: >-
+  The example app under the LEAN binary — a configuration shell, not a
+  second app. This pubspec IS the entire difference: the bundleCldrData
+  user_define below makes the build hook fetch/compile the no-CLDR
+  binary, and assets/icu/ carries the sliced postcards that feed it.
+  All app code and all test suites come from example/ and its
+  test_support package, so the two flavors cannot drift apart.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+# THE lean switch — the one line a real consumer flips (see the
+# package README's "Bundle size" section).
+hooks:
+  user_defines:
+    icu_kit:
+      bundleCldrData: false
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  icu_kit:
+    path: ../
+
+  # The real app — this shell re-exports its main().
+  icu_kit_example:
+    path: ../example/
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  # The shared suite bodies (journeys + smoke) and robot harness.
+  icu_kit_example_test_support:
+    path: ../example/test_support/
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Per-locale postcards sliced by `make postcards-example-lean`
+  # (gitignored — generated, never committed).
+  assets:
+    - assets/icu/

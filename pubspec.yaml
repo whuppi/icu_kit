@@ -1,0 +1,78 @@
+name: icu_kit
+version: 0.0.0
+description: >-
+  ICU4X bindings for ECMA-402 internationalization — numbers, dates,
+  plurals, lists, collation, segmentation. Native FFI + WebAssembly.
+homepage: https://github.com/whuppi/icu_kit
+repository: https://github.com/whuppi/icu_kit
+issue_tracker: https://github.com/whuppi/icu_kit/issues
+
+topics:
+  - i18n
+  - internationalization
+  - icu
+  - localization
+  - unicode
+
+# `dart run icu_kit:setup` — the consumer-facing web asset installer.
+executables:
+  setup:
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+hooks:
+  build: true
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Optional: bundleCldrData (default: true)
+  #
+  # Set to `false` in your app's pubspec.yaml to ship a lean binary that
+  # excludes the ~16 MB CLDR statics. Apps then must call
+  # `IcuKit.init(data: IcuData.lazy(...))` to load per-locale postcards
+  # at runtime. See the README's "Bundle size" section.
+  #
+  # This is the ONLY switch. At startup `IcuKit.init` detects which
+  # binary flavor the hook produced (it probes a compiled-data FFI
+  # symbol) and validates the IcuData config against it — there is no
+  # dart-define to keep in sync.
+  #
+  # Example consumer pubspec.yaml:
+  #
+  #   hooks:
+  #     user_defines:
+  #       icu_kit:
+  #         bundleCldrData: false
+  # ──────────────────────────────────────────────────────────────────────
+
+# Pure Dart on purpose — no Flutter SDK, no plugins. The build hook compiles
+# icu_capi from the vendored ICU4X source (needs the Rust toolchain).
+dependencies:
+  # Build hook — native asset compilation protocol
+  code_assets: ^1.2.1
+  hooks: ^2.0.2
+
+  # Build hook — cargo-cache fingerprints
+  crypto: ^3.0.7
+
+  # Native FFI bridge (native platforms only)
+  ffi: ^2.1.0
+
+  # Build hook + bin/setup.dart — package root resolution
+  package_config: '>=2.1.0 <4.0.0'
+
+  # Build hook + resolver — cross-platform path handling
+  path: ^1.9.0
+
+  # Build hook + setup diagnostics
+  logging: ^1.3.0
+
+  # Annotations (@immutable, @visibleForTesting)
+  meta: ^1.17.0
+
+dev_dependencies:
+  # Test runner — VM suites and the Chrome lane both execute under `dart test`
+  test: ^1.31.0
+
+  # Lint rules
+  lints: ^6.1.0

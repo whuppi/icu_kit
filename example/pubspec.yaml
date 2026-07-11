@@ -1,0 +1,32 @@
+name: icu_kit_example
+description: Example app demonstrating icu_kit features.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  icu_kit:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  # The robot harness + device matrix shared by test/journeys and
+  # integration_test through one package: import.
+  icu_kit_example_test_support:
+    path: test_support/
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

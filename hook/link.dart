@@ -1,0 +1,18 @@
+// Link hook — passthrough. Forwards every native asset to the app
+// bundle unchanged.
+//
+// Do NOT delete this file as "dead code": on release/AOT builds
+// Flutter routes native assets through the link hook (build.dart
+// emits them ToLinkHook when linking is enabled), and a missing hook
+// fails the build. Debug builds bypass it (assets route ToAppBundle);
+// web assets never pass through here.
+
+import 'package:hooks/hooks.dart';
+
+void main(List<String> args) async {
+  await link(args, (LinkInput input, LinkOutputBuilder output) async {
+    for (final asset in input.assets.encodedAssets) {
+      output.assets.addEncodedAsset(asset);
+    }
+  });
+}

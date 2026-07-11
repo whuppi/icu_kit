@@ -1,0 +1,9 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # This app is the package's own showcase — it deliberately demos the
+    # experimental formatters (currency / percent / unit) and labels them
+    # "(experimental)" in the UI. The warning exists for third-party
+    # consumers, not for the package's own demo.
+    experimental_member_use: ignore

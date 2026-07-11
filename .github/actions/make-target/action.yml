@@ -1,0 +1,175 @@
+name: Make Target
+description: >
+  Orchestrator. Provisions capabilities then runs a make target.
+  Generic capabilities come from whuppi/ci (pinned to the shared release);
+  the native/wasm ones (rust, wasm-cache, wasm-build) are repo-specific and
+  stay local under capabilities/. This file is a flat list of conditional
+  capability calls — zero logic of its own.
+
+inputs:
+  make-target:
+    description: "Makefile target to run"
+    required: true
+  rust:
+    description: "Install the Rust toolchain (off for Dart-only static jobs)"
+    required: false
+    default: 'true'
+  free-disk:
+    description: "Reclaim disk for build-heavy jobs (Linux)"
+    required: false
+    default: 'false'
+  java:
+    description: "Install JDK"
+    required: false
+    default: 'false'
+  chrome:
+    description: "Install Chrome + ChromeDriver"
+    required: false
+    default: 'false'
+  headless-display:
+    description: "Virtual display for headless GUI"
+    required: false
+    default: 'false'
+  hw-accel:
+    description: "Hardware acceleration for emulators"
+    required: false
+    default: 'false'
+  gradle-cache:
+    description: "Cache Gradle"
+    required: false
+    default: 'false'
+  xcode-cache:
+    description: "Cache Xcode derived data"
+    required: false
+    default: 'false'
+  xcode-cache-target:
+    description: "ios or macos — Xcode cache key"
+    required: false
+    default: ''
+  pods-cache:
+    description: "Cache CocoaPods"
+    required: false
+    default: 'false'
+  wasm-cache:
+    description: "Cache WASM build"
+    required: false
+    default: 'false'
+  wasm-build:
+    description: "Compile WASM from source"
+    required: false
+    default: 'false'
+  emulator:
+    description: "Boot Android emulator (wraps make-target)"
+    required: false
+    default: 'false'
+  simulator:
+    description: "Boot iOS simulator"
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # ── Always ──
+    # Generic capabilities come from whuppi/ci (pinned to the shared release);
+    # the native/wasm ones (rust, wasm-cache, wasm-build) are repo-specific and
+    # stay local. The shared capabilities were generalized FROM these, so the
+    # behavior is identical — only their home moved.
+    - uses: whuppi/ci/actions/capabilities/fvm@v2.0.4
+
+    # ── On demand ──
+    # Default on: most jobs build the native/wasm engine. Dart-only static
+    # jobs (pana, downgrade-analyze) never invoke cargo, so they pass rust: false.
+    # rust sets SUBMODULE_ICU4X in $GITHUB_ENV — the xcode/wasm cache keys
+    # below read it, so rust must run before them (it does).
+    - uses: ./.github/actions/capabilities/rust
+      if: inputs.rust == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/free-disk-space@v2.0.4
+      if: inputs.free-disk == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/java@v2.0.4
+      if: inputs.java == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/chrome@v2.0.4
+      if: inputs.chrome == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/headless-display@v2.0.4
+      if: inputs.headless-display == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/hw-accel@v2.0.4
+      if: inputs.hw-accel == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/gradle-cache@v2.0.4
+      if: inputs.gradle-cache == 'true'
+      with:
+        phase: restore
+
+    # Forward the icu4x submodule rev (set by the rust step above) as the
+    # shared xcode-cache's key-extra, preserving the precise cache key the
+    # local xcode-cache read from env directly.
+    - uses: whuppi/ci/actions/capabilities/xcode-cache@v2.0.4
+      if: inputs.xcode-cache == 'true'
+      with:
+        target: ${{ inputs.xcode-cache-target }}
+        key-extra: ${{ env.SUBMODULE_ICU4X }}
+
+    - uses: whuppi/ci/actions/capabilities/pods-cache@v2.0.4
+      if: inputs.pods-cache == 'true'
+
+    - uses: ./.github/actions/capabilities/wasm-cache
+      if: inputs.wasm-cache == 'true'
+
+    - uses: ./.github/actions/capabilities/wasm-build
+      if: inputs.wasm-build == 'true'
+
+    - uses: whuppi/ci/actions/capabilities/ios-simulator@v2.0.4
+      if: inputs.simulator == 'true'
+
+    # ── Run ──
+    # The run command is authored ONCE, here, into /tmp/make-run.sh:
+    # `flutter doctor -v` immediately before `make <target>`. Both the
+    # direct path and the emulator path execute this same file, so the
+    # two can never drift — doctor always runs against the fully-
+    # provisioned environment (live emulator on Android, host elsewhere)
+    # on the line right before make.
+    - name: Compose run script
+      shell: bash
+      run: |
+        cat > /tmp/make-run.sh << 'EOF'
+        #!/usr/bin/env bash
+        set -uo pipefail
+        echo "::group::flutter doctor -v"
+        fvm flutter doctor -v || true
+        echo "::endgroup::"
+        make "$1"
+        EOF
+        chmod +x /tmp/make-run.sh
+
+    # Direct path — normal and headless merged; xvfb-run is the only
+    # variable (a display prefix), applied to doctor + make alike.
+    - name: ${{ inputs.make-target }}
+      if: inputs.emulator != 'true'
+      shell: bash
+      run: |
+        PREFIX=""
+        [ "${INPUTS_HEADLESS_DISPLAY}" = "true" ] && PREFIX="xvfb-run "
+        ${PREFIX}/tmp/make-run.sh "${INPUTS_MAKE_TARGET}"
+      env:
+        INPUTS_HEADLESS_DISPLAY: ${{ inputs.headless-display }}
+        INPUTS_MAKE_TARGET: ${{ inputs.make-target }}
+
+    # Emulator path — the SAME script, executed inside the live emulator
+    # by the capability's teardown-watchdog wrapper. The shared android-emulator
+    # reconciles the machine report at its default path (test-results/
+    # int-android.json), which is where the android make target writes.
+    - uses: whuppi/ci/actions/capabilities/android-emulator@v2.0.4
+      if: inputs.emulator == 'true'
+      with:
+        script: /tmp/make-run.sh "${{ inputs.make-target }}"
+
+    - uses: whuppi/ci/actions/capabilities/gradle-cache@v2.0.4
+      if: always() && inputs.gradle-cache == 'true'
+      with:
+        phase: save
+

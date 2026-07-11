@@ -1,0 +1,24 @@
+# Default to the VM; chrome runs opt in via -p chrome (make test-web).
+platforms: [vm]
+
+# CI runners have no SUID sandbox; only this package's own suites are loaded.
+override_platforms:
+  chrome:
+    settings:
+      arguments: --no-sandbox --disable-gpu
+
+# Test tags used across the icu_kit suite. Each tag groups suites that may
+# need separate handling in CI / release pipelines.
+tags:
+  experimental_currency:
+    # Currency formatting is backed by icu_experimental in ICU4X 2.2.
+    # Tagged so it can be excluded from release pipelines if upstream
+    # API churn breaks tests. See lib/src/facade/icu_currency_format.dart.
+  experimental_percent:
+    # Percent formatting backed by icu_experimental in ICU4X 2.2.
+    # Same migration trigger as currency (PR #7789).
+    # See lib/src/facade/icu_percent_format.dart.
+  experimental_unit:
+    # Unit formatting backed by icu_experimental in ICU4X 2.2.
+    # Same migration trigger as currency (PR #7789).
+    # See lib/src/facade/icu_unit_format.dart.

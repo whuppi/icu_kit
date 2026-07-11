@@ -1,0 +1,43 @@
+# Code ownership — enforced natively by GitHub's require_code_owner_reviews.
+#
+# Non-admin PRs need approval from a codeowner for every touched path.
+# Admin (repo owner) bypasses via enforce_admins: false.
+#
+# Order matters — last match wins (gitignore rules).
+
+# Default: maintainers team owns everything
+*                          @whuppi/icu-kit-maintainers
+
+# Release files: repo owner only (contributors don't write changelogs or versions)
+/CHANGELOG.md              @chaudharydeepanshu
+/CHANGELOG.pre.md          @chaudharydeepanshu
+/pubspec.yaml              @chaudharydeepanshu
+/build.json                @chaudharydeepanshu
+# Lockfiles are bot-refreshed (upgrade-check.yml); contributors don't hand-edit them.
+/pubspec.lock              @chaudharydeepanshu
+/example/pubspec.lock      @chaudharydeepanshu
+
+# CI and config: repo owner only
+/.github/                  @chaudharydeepanshu
+/.githooks/                @chaudharydeepanshu
+
+# Build + release + supply-chain machinery: repo owner only.
+# Holds the pinned sha256s (versions.env), the fail-closed download gate
+# (fetch_verified.sh), the publish pipeline + the hash-writing bump bot
+# (tool/ci/). A non-owner edit here is a supply-chain or release risk.
+/tool/                     @chaudharydeepanshu
+
+# Vendored engine submodules: bumping a gitlink pulls in that commit's build.rs
+# and build-dependencies, which cargo runs at compile time (before any test) in
+# CI. Without this, a bump falls to the maintainers team via `*`; gate the
+# pointer bump to the owner instead. Per-file rules like /vendor/**/build.rs are
+# deliberately absent: those files live inside the submodule repos, not this one,
+# so CODEOWNERS here can't match them. The submodule repos' own CODEOWNERS gate
+# their build scripts and lockfiles.
+/vendor/                   @chaudharydeepanshu
+
+# Adding any submodule requires editing .gitmodules, so gating this one file
+# forces owner review for a new submodule at any path. The /vendor/ rule above
+# only covers the existing engine's gitlink bumps; a brand-new submodule (with
+# its own build.rs that cargo runs at compile time) would otherwise land via `*`.
+/.gitmodules               @chaudharydeepanshu

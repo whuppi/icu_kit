@@ -1,0 +1,44 @@
+# slopfairy config for icu_kit
+# Overrides defaults — missing keys use built-in behavior
+
+reviews:
+  auto_review: true
+  focus_areas:
+    - correctness
+    - target-safety
+    - ffi-boundary
+  ignore_paths: []
+  path_instructions:
+    - path: "lib/src/**"
+      instructions: "Check FFI bindings, null safety, isolate safety, and target-specific code paths"
+    - path: "hook/**"
+      instructions: "This is the native assets build hook (Rust compilation). Check build.dart correctness"
+    - path: "vendor/**"
+      instructions: "Vendored ICU4X fork sources. Do not suggest style changes"
+    - path: ".github/**"
+      instructions: "Check workflow security: pull_request_target must not check out PR-head code, and untrusted github.event.* values (PR title, branch refs, comment bodies) must never be interpolated into a run: block — they belong in env:. Also flag rolling action refs (@main/@stable) and any secret exposed to fork code."
+
+triage:
+  auto_label: true
+  auto_assign: false
+
+personality:
+  tone: professional
+  extra_instructions: |
+    This is a PUBLIC Dart/Flutter package on pub.dev. External contributors
+    and users open issues and PRs. Be welcoming, patient, and helpful.
+
+    Key facts:
+    - Cross-platform: Android, iOS, macOS, Windows, Linux, Web (WASM)
+    - Powered by ICU4X (Rust) via FFI. Native assets build hook in hook/build.dart
+    - Conventional commits enforced (feat:, fix:, ci:, chore:, docs:, etc.)
+    - Versions and changelogs are managed by the shared whuppi/ci release
+      tooling (the release-tool action + a local tool/ci/release_hooks.sh
+      extension), gated on pushes to dev/prod — NOT release-please
+    - Default branch is dev, prod branch is for stable releases
+    - Linear chain: feature → dev → prod. No skipping.
+
+    When triaging issues from users:
+    - Ask for Flutter version, target (e.g. Android, iOS, web), and full error log if not provided
+    - Check if the issue is about the OLD Android-only version (pre-1.0) vs current
+    - Common issues: WASM setup missing, target-specific build failures, FFI crashes

@@ -1,0 +1,22 @@
+{
+  "crate": "icu_capi",
+  "repo": "whuppi/icu_kit",
+  "baseTag": "icu@2.2.0",
+  "nightlyToolchain": "nightly-2025-09-27",
+  "features": {
+    "native": "default_components,experimental,buffer_provider,compiled_data",
+    "nativeLean": "default_components,experimental,buffer_provider",
+    "wasm": "compiled_data,buffer_provider,default_components,experimental,unstable,logging",
+    "wasmLean": "buffer_provider,default_components,experimental,unstable,logging"
+  },
+  "web": {
+    "icu4x.wasm": "wasm-icu4x.wasm"
+  },
+  "webLean": {
+    "icu4x.wasm": "wasm-icu4x-lean.wasm"
+  },
+  "wasmBuildOutputs": [
+    "icu4x.wasm",
+    "icu4x-lean.wasm"
+  ]
+}

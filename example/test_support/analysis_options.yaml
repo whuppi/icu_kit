@@ -1,0 +1,9 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # This package hosts the example's smoke + journey suites, which
+    # deliberately exercise the experimental formatters (currency /
+    # percent / unit) — the same demo the example app makes. The warning
+    # is for third-party consumers, not for the package's own showcase.
+    experimental_member_use: ignore

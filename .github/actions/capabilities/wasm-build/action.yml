@@ -1,0 +1,15 @@
+name: WASM Build
+description: Compile WASM (both CLDR variants) from source if not cached.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        if [ -f web_assets/icu4x.wasm ]; then
+          echo "WASM cached — skipping build"
+        else
+          make build-wasm
+        fi
+        # build-wasm-lean skips by itself when the artifact is present.
+        make build-wasm-lean

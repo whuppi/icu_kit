@@ -45,6 +45,9 @@ JSObject _utcDate(JSObject iso, [JSObject? time]) {
     (time == null ? 0 : _num(time, 'hour')).toJS,
     (time == null ? 0 : _num(time, 'minute')).toJS,
     (time == null ? 0 : _num(time, 'second')).toJS,
+    // subsecond is nanoseconds; a JS Date time value is integer-ms (fractional
+    // ms is truncated by TimeClip) and Intl resolves no finer, so truncate
+    // ns → ms here — nothing finer could survive the Date anyway.
     (time == null ? 0 : _num(time, 'subsecond') ~/ 1000000).toJS,
   ]);
   return dateCls.callAsConstructorVarArgs<JSObject>([ms]);
@@ -105,14 +108,22 @@ JSObject _formatter(String tag, Map<String, JSAny?> fields) {
 }
 
 String _fmtOwn(JSObject self, JSObject jsDate) {
-  final tag = self.getProperty<JSString>('tag'.toJS).toDart;
-  final fields = self.getProperty<JSObject>('fields'.toJS);
-  final opts = _cloneWith(fields, {'timeZone': 'UTC'.toJS});
-  return intlFormat(
-    'DateTimeFormat',
-    tag,
-    opts,
-  ).callMethod<JSString>('format'.toJS, jsDate).toDart;
+  // The UTC Intl.DateTimeFormat depends only on (tag, fields), both fixed for
+  // this formatter, so build it once and cache it on self — reused across
+  // format() calls (only jsDate varies), matching ICU4X's reuse. (The zoned
+  // formatters can't share this: their timeZone arrives per format call.)
+  var fmt = self.getProperty<JSObject?>('_fmt'.toJS);
+  if (fmt == null) {
+    final tag = self.getProperty<JSString>('tag'.toJS).toDart;
+    final fields = self.getProperty<JSObject>('fields'.toJS);
+    fmt = intlFormat(
+      'DateTimeFormat',
+      tag,
+      _cloneWith(fields, {'timeZone': 'UTC'.toJS}),
+    );
+    self.setProperty('_fmt'.toJS, fmt);
+  }
+  return fmt.callMethod<JSString>('format'.toJS, jsDate).toDart;
 }
 
 // Shallow-clone an options object and set extra keys (Object.assign).

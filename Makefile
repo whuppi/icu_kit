@@ -3,9 +3,9 @@
         postcards-example-lean test-example-lean-matrix verify-web-lean \
         build-wasm build-wasm-lean regen-bindings clean \
         test-example test-example-matrix test-example-macos test-example-device \
-        test-example-android test-example-ios test-example-linux \
+        test-rust test-example-android test-example-ios test-example-linux \
         test-example-windows test-example-web \
-        verify-android verify-ios verify-macos verify-linux \
+        verify verify-android verify-ios verify-macos verify-linux \
         verify-windows verify-web verify-readme-sizes \
         compile-macos compile-ios compile-android compile-linux \
         compile-windows compile-wasm compile-natives
@@ -104,6 +104,18 @@ test:
 	@echo "=== VM suite (build hook compiles icu_capi on first run) ==="
 	@mkdir -p $(TEST_RESULTS_DIR)
 	@$(DART) test $(TIMEOUT) --file-reporter json:$(TEST_RESULTS_DIR)/vm.json
+
+# make test-rust  Cargo tests for the patched vendored crate — icu_capi is
+#                 where every fork patch lives, so this is the rebase-safety
+#                 harness: upstream's own tests riding the fork prove a patch
+#                 (or a rebase of one) didn't break neighboring behavior.
+#                 Same feature set + no-default-features as the hook's build.
+
+test-rust:
+	@echo "=== Rust: icu_capi (vendored fork, native features) ==="
+	cargo test --manifest-path vendor/icu4x/ffi/capi/Cargo.toml \
+	  --no-default-features \
+	  --features "$$(bash tool/compile_rust.sh --features native)"
 
 # make test-lean  The LEAN binary end to end: test_fixtures/lean_smoke/ is its own
 #                 hooks root whose pubspec flips bundleCldrData off, so the
@@ -230,8 +242,11 @@ test-example-web: build-wasm
 		-d chrome --browser-name=chrome --headless
 
 # ── Verify: release builds of the example ──
+verify: verify-android verify-ios verify-macos verify-linux verify-windows verify-web verify-web-lean
+
 verify-android:
 	@cd example && $(FLUTTER) build apk --release
+	@bash tool/check_alignment.sh example/build/app/outputs/flutter-apk/app-release.apk
 
 verify-ios:
 	@cd example && $(FLUTTER) build ios --release --no-codesign

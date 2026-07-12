@@ -48,6 +48,7 @@ jobs:
       contents: read  # checkout + paths-filter, read-only
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      rust: ${{ steps.filter.outputs.rust }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -59,14 +60,42 @@ jobs:
             code:
               - 'lib/**'
               - 'test/**'
+              - 'test_fixtures/**'
+              - 'bin/**'
               - 'hook/**'
               - 'vendor/**'
               - 'web_assets/**'
               - 'example/**'
+              - 'example_lean/**'
               - 'pubspec.yaml'
               - 'analysis_options.yaml'
               - 'Makefile'
               - '.github/**'
+            rust:
+              - 'vendor/**'
+              - 'build.json'
+              - 'Makefile'
+              - '.github/**'
+
+  # Vendored-fork cargo tests — only when a PR touches the fork pointer,
+  # its features, the Makefile, or CI. Skipped on Dart-only PRs. The fork
+  # carries patches on icu_capi; upstream's tests riding the fork are the
+  # rebase-safety harness.
+  rust:
+    name: Rust tests
+    needs: [inputs, changes]
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ${{ needs.inputs.outputs.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read  # checkout + build, read-only
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { submodules: recursive, persist-credentials: false }
+      - uses: ./.github/actions/make-target
+        with:
+          make-target: test-rust
+          free-disk: 'true'
 
   analyze:
     name: Analyze
@@ -160,7 +189,7 @@ jobs:
   gate:
     name: CI Gate
     if: always()
-    needs: [inputs, changes, analyze, analyze-floor, platforms, test, test-web]
+    needs: [inputs, changes, analyze, analyze-floor, platforms, rust, test, test-web]
     runs-on: ${{ needs.inputs.outputs.runner }}
     timeout-minutes: 5
     permissions: {}
@@ -175,6 +204,7 @@ jobs:
           PLATFORMS: ${{ needs.platforms.result }}
           TEST: ${{ needs.test.result }}
           TESTWEB: ${{ needs.test-web.result }}
+          RUST: ${{ needs.rust.result }}
         run: |
           # A failed (not skipped) changes job clears its outputs, so CODE
           # arrives empty — which must NOT read as "doc-only". Gate on the
@@ -189,6 +219,11 @@ jobs:
           fi
           if [[ "$ANALYZE" != "success" ]] || [[ "$FLOOR" != "success" ]] || [[ "$PLATFORMS" != "success" ]] || [[ "$TEST" != "success" ]] || [[ "$TESTWEB" != "success" ]]; then
             echo "FAILED: analyze=$ANALYZE floor=$FLOOR platforms=$PLATFORMS test=$TEST test-web=$TESTWEB"
+            exit 1
+          fi
+          # rust runs only when the fork/features/Makefile/CI change; skipped is OK.
+          if [[ "$RUST" != "success" && "$RUST" != "skipped" ]]; then
+            echo "FAILED: rust=$RUST"
             exit 1
           fi
           echo "All CI checks passed"

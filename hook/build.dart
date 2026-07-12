@@ -93,9 +93,11 @@
 //   the vendored submodule's working tree stays clean and incremental
 //   caches survive across hook invocations.
 //
-//   Rebuild detection (contributors only): every `.rs` file under the
-//   tracked vendor dirs is a dependency, plus Cargo.lock, the bindings
-//   barrel, build.json, asset_hashes.dart, pubspec.yaml, and this hook.
+//   Rebuild detection (contributors only): every *.rs, *.rs.data (baked
+//   data include), and Cargo.toml under the tracked vendor dirs is a
+//   dependency, plus the workspace configs (Cargo.toml/.lock,
+//   rust-toolchain, .cargo/config, capi build.rs), the bindings barrel,
+//   build.json, asset_hashes.dart, pubspec.yaml, and this hook.
 
 import 'dart:convert';
 import 'dart:io';
@@ -116,9 +118,9 @@ final _log = Logger('icu_kit:build');
 /// tool/regen_bindings.dart.
 const _bindingsAssetName = 'src/runtime/native/bindings/lib.g.dart';
 
-/// Subdirectories of the vendored ICU4X submodule whose Rust source files
-/// are tracked as build dependencies. Any `.rs` change under these paths
-/// triggers a rebuild via `package:hooks` content-hash comparison.
+/// Subdirectories of the vendored ICU4X submodule tracked as build
+/// dependencies. Any file change under these paths triggers a rebuild
+/// via `package:hooks` content-hash comparison.
 const _trackedRustDirs = ['components', 'utils', 'provider', 'ffi/capi'];
 
 // ── build.json — single source of truth for all build constants ──
@@ -539,12 +541,36 @@ void _trackDependencies({
   if (!hasVendorSource(packageRoot)) return;
 
   final submodule = packageRoot.resolve('vendor/icu4x/');
-  output.dependencies.add(submodule.resolve('Cargo.lock'));
+  // Workspace + crate configs: feature edits, toolchain bumps, and linker
+  // flags change the binary without touching any .rs file.
+  const configs = [
+    'Cargo.toml',
+    'Cargo.lock',
+    'rust-toolchain.toml',
+    'rust-toolchain',
+    '.cargo/config.toml',
+    '.cargo/config',
+    'ffi/capi/Cargo.toml',
+    'ffi/capi/build.rs',
+  ];
+  for (final file in configs) {
+    final uri = submodule.resolve(file);
+    if (File.fromUri(uri).existsSync()) {
+      output.dependencies.add(uri);
+    }
+  }
   for (final dirName in _trackedRustDirs) {
     final dir = Directory.fromUri(submodule.resolve('$dirName/'));
     if (!dir.existsSync()) continue;
     for (final entity in dir.listSync(recursive: true, followLinks: false)) {
-      if (entity is File && entity.path.endsWith('.rs')) {
+      // What cargo actually reads: sources, baked-data includes, and
+      // per-crate manifests. NOT every file — provider/source/ alone is
+      // 7k+ files of datagen-only CLDR input that cargo never touches,
+      // and package:hooks content-hashes every dependency per run.
+      if (entity is File &&
+          (entity.path.endsWith('.rs') ||
+              entity.path.endsWith('.rs.data') ||
+              entity.path.endsWith('Cargo.toml'))) {
         output.dependencies.add(entity.uri);
       }
     }
@@ -566,7 +592,7 @@ void _trackDependencies({
 /// ```
 ///
 /// Default is `true` — full CLDR baked in. Set to `false` for the lean
-/// binary without the ~16 MB CLDR statics; apps must then init with
+/// binary without the ~19 MB CLDR statics; apps must then init with
 /// `IcuData.lazy(...)` to load per-locale postcards on demand.
 bool _bundleCldr(BuildInput input) {
   final raw = input.userDefines['bundleCldrData'];
@@ -588,7 +614,7 @@ hooks:
       bundleCldrData: true
 ```
 
-* Lean binary — no CLDR statics (~16 MB smaller); the app must init with
+* Lean binary — no CLDR statics (~19 MB smaller); the app must init with
   `IcuData.lazy(...)` and load per-locale postcards at runtime:
 ```
 hooks:

@@ -135,18 +135,25 @@ echo "  clean — facades speak only the bindings seam"
 # not left to warn in the other.
 
 VENDOR="$PKG_ROOT/vendor/icu4x"
-json_get() { python3 -c "import json,sys;print(json.load(open('$PKG_ROOT/build.json'))$1)"; }
+json_get() {  # jq path, e.g. '.features.native' — fails loud on a missing key
+  command -v jq >/dev/null 2>&1 || { echo "Error: jq not found (needed to read build.json)" >&2; exit 2; }
+  jq -er "$1" "$PKG_ROOT/build.json" 2>/dev/null || {
+    echo "Error: '$1' not found in $PKG_ROOT/build.json" >&2
+    exit 2
+  }
+}
 
 # ── Nightly-pin consistency (drift guard) ───────────────────────────
 # The native-static build reads build.json's nightlyToolchain; the wasm
 # build reads upstream build.sh's PINNED_CI_NIGHTLY (build_wasm.dart
 # delegates to it, no const of its own). A submodule bump can change
 # upstream's nightly — if build.json isn't bumped to match, native-static
-# and wasm would compile with DIFFERENT nightlies. See docs/UPDATING.md §4.
+# and wasm would compile with DIFFERENT nightlies. See the nightly-bump
+# procedure in docs/UPDATING.md.
 BUILDSH="$VENDOR/ffi/capi/build.sh"
 if [ -f "$BUILDSH" ]; then
   echo "=== Rust: nightly-pin consistency (build.json vs upstream build.sh) ==="
-  json_nightly=$(json_get "['nightlyToolchain']")
+  json_nightly=$(json_get '.nightlyToolchain')
   # PINNED_CI_NIGHTLY="${PINNED_CI_NIGHTLY:=nightly-YYYY-MM-DD}"
   upstream_nightly=$(grep -oE 'nightly-[0-9]{4}-[0-9]{2}-[0-9]{2}' "$BUILDSH" | head -1)
   if [ "$json_nightly" != "$upstream_nightly" ]; then
@@ -154,14 +161,14 @@ if [ -f "$BUILDSH" ]; then
     echo "            vendor/icu4x/ffi/capi/build.sh pins '$upstream_nightly'."
     echo "  The native-static and wasm builds would use different nightlies."
     echo "  Fix: set build.json nightlyToolchain to '$upstream_nightly'"
-    echo "  (see docs/UPDATING.md §4)."
+    echo "  (see the nightly-bump procedure in docs/UPDATING.md)."
     exit 1
   fi
   echo "  clean — both pin $json_nightly"
 fi
 
-NATIVE_FEATURES=$(json_get "['features']['native']")
-LEAN_FEATURES=$(json_get "['features']['nativeLean']")
+NATIVE_FEATURES=$(json_get '.features.native')
+LEAN_FEATURES=$(json_get '.features.nativeLean')
 
 check_rust_warnings() {
   local features="$1"
@@ -172,7 +179,7 @@ check_rust_warnings() {
   if [[ "$branch" == */*-patches ]]; then
     base_tag="icu@$(cut -d/ -f2 <<< "$branch" | sed 's/-patches$//')"
   else
-    base_tag=$(json_get "['baseTag']")
+    base_tag=$(json_get '.baseTag')
   fi
 
   local diff_file warnings_json

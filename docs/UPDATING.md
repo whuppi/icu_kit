@@ -115,7 +115,10 @@ grep -rl "icu_kit patch" ffi/capi/
 
    The Rust half checks `icu_capi` in BOTH feature configurations
    (bundled CLDR on and off) and fails on any cargo warning inside a
-   line we changed vs the base tag. The lean config is the one that
+   line we changed vs the base tag. Then run `make test-rust` — the
+   patched crate's cargo tests with the hook's native feature set — so
+   a mis-resolved rebase conflict fails here, not three layers up in a
+   Dart suite. The lean config is the one that
    catches feature-gated import gaps — fix them by cfg-gating the
    import to the config that uses it, never by adding a blanket import
    the other config warns on.
@@ -393,6 +396,138 @@ Test by running a fresh `fvm dart test` — the build hook picks up the new tool
 The release pipeline is `.github/workflows/release.yml` (push + manual dispatch). It owns versions, tags, and publishing: it gates the two changelogs, compiles every release asset (26 native variants + both wasm variants), uploads them, and stamps their hashes into `lib/src/hook/asset_hashes.dart` on the tag. Your only authored input is the changelog entry — the comment block at the top of `CHANGELOG.pre.md` / `CHANGELOG.md` is the standard, including the VERSION SCHEME (0.x stables, per-version `-dev.N` prereleases).
 
 The pipeline has never run end to end — validating it IS the first release. See the launch-blocker row in [`CAPABILITY_ROADMAP.md`](CAPABILITY_ROADMAP.md) Table 4.
+
+### Branch model
+
+The two-lane branch model (`dev` prereleases, `prod` stable) and the
+squash-vs-merge-commit rule are the shared model. See
+whuppi/ci/docs/ARCHITECTURE.md "The versioned-release model + the
+stamping rule".
+
+### The rules
+
+- **NEVER push directly to `dev` or `prod`.** Every change goes through
+  a PR. No exceptions.
+- **NEVER force-push protected branches** unless syncing prod to dev
+  after a divergence (and only with the documented procedure below).
+- **NEVER run destructive git commands** (`reset --hard`, `clean -fd`,
+  `stash drop`, `gh pr close --delete-branch`) without explicit
+  permission.
+
+### The release pipeline
+
+The gate → discover → compile → upload → publish orchestration
+(changelog gate, version discovery, the approval-gate pause,
+`pub publish`, version-level concurrency, idempotent reruns) is the
+shared release engine. See whuppi/ci/docs/ARCHITECTURE.md "The release
+surface".
+
+What icu_kit's release adds on top:
+
+- **Native compile matrix** — the compile step checks out the tag and
+  builds all 6 target groups in parallel (26 native variants: every
+  target × bundled + lean CLDR, plus both wasm variants).
+- **Submodule deregistration** — the shared engine deregisters the
+  vendored submodule so the tag ships raw icu4x source (git-ref
+  consumers get vendor without submodule support).
+- **Asset hashes into the tag** — after upload, `--update-tag-hashes`
+  writes the binary hashes back into the tag, so `git: ref: <tag>`
+  users get verified binary downloads.
+
+### Prerelease
+
+```
+1. Add ## X.Y.Z-dev.N at top of CHANGELOG.pre.md
+2. PR to dev → squash and merge
+3. (automatic) gate → discover → compile → upload
+4. (manual) approve "publish" environment → pub.dev
+```
+
+### Stable release
+
+```
+1. Add ## X.Y.Z at top of CHANGELOG.md
+2. PR to dev → squash and merge (dev ignores stable changelog — no release triggered)
+3. PR from dev → prod → create a merge commit (NOT squash, NOT rebase)
+4. (automatic) gate → discover → compile → upload
+5. (manual) approve "publish" environment → pub.dev
+```
+
+### Manual re-trigger
+
+```sh
+# Must use --ref to run on the correct branch
+gh workflow run "Release" --repo whuppi/icu_kit --ref dev --field branch=dev
+gh workflow run "Release" --repo whuppi/icu_kit --ref prod --field branch=prod
+```
+
+`--ref` controls which branch the workflow runs ON. `--field branch`
+is the input the script reads. Both must match. Without `--ref`, the
+workflow runs on the default branch regardless of the input.
+
+### Delete and recreate a release
+
+When a release needs to be rebuilt (broken binaries, missing assets):
+
+```sh
+gh release delete vX.Y.Z --repo whuppi/icu_kit --yes
+git push origin --delete refs/tags/vX.Y.Z
+gh workflow run "Release" --repo whuppi/icu_kit --ref <branch> --field branch=<branch>
+```
+
+### Syncing prod to dev (after divergence)
+
+If prod diverges from dev (e.g. an accidental squash merge on a
+promotion PR), force-sync it. Prod normally forbids force-push, so the
+procedure is **allow → sync → re-forbid** — steps 1 and 3 are the same
+protection-PUT call with only the final `allow_force_pushes` flag
+flipped (`true`, then `false`).
+
+```sh
+# Step 1 — allow force-push (allow_force_pushes=true):
+gh api repos/whuppi/icu_kit/branches/prod/protection -X PUT \
+  -F "required_status_checks[strict]=true" \
+  -F "required_status_checks[checks][][context]=checks / Conventional Commit" -F "required_status_checks[checks][][app_id]=15368" \
+  -F "required_status_checks[checks][][context]=Full Test Gate" -F "required_status_checks[checks][][app_id]=15368" \
+  -F "required_status_checks[checks][][context]=CI Gate" -F "required_status_checks[checks][][app_id]=15368" \
+  -F "required_pull_request_reviews[dismiss_stale_reviews]=true" \
+  -F "required_pull_request_reviews[require_code_owner_reviews]=true" \
+  -F "required_pull_request_reviews[required_approving_review_count]=2" \
+  -F "enforce_admins=false" -F "restrictions=null" -F "allow_force_pushes=true" \
+  --silent
+
+# Step 2 — force-sync:
+git push origin dev:prod --force-with-lease
+
+# Step 3 — re-forbid: rerun the Step 1 command with allow_force_pushes=false
+```
+
+### Failure recovery
+
+| Failure | Fix |
+|---|---|
+| Compile failed (infra) | Rerun via workflow_dispatch (idempotent) |
+| Compile failed (code bug) | Fix on dev via PR, bump prerelease version |
+| Upload failed | Rerun — clobber overwrites |
+| Publish failed | Rerun — approval gate shows again |
+| Tag exists but no Release | Rerun via workflow_dispatch |
+| Wrong release notes | Delete release + tag, re-trigger |
+
+---
+
+## Flutter version pinning
+
+`.fvmrc` (root + `example/.fvmrc` + `example_lean/.fvmrc`) is the single
+source of truth for the Flutter SDK version. Never hardcode the version
+anywhere else.
+
+`upgrade-check.yml` runs daily and splits the work by risk into two
+draft PRs. The `pins` job re-hashes the current pins to catch a repoint,
+then bumps every pinned version Dependabot can't see (the Flutter SDK,
+the binaryen + pana pins in `tool/versions.env`, sha256s recomputed from
+the upstream assets) onto `chore/pins`. The `lockfiles` job refreshes
+the lockfiles onto `chore/lockfiles`. Review, test, merge each when
+ready.
 
 ---
 

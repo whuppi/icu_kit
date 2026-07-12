@@ -28,7 +28,7 @@ hooks:
   # Optional: bundleCldrData (default: true)
   #
   # Set to `false` in your app's pubspec.yaml to ship a lean binary that
-  # excludes the ~16 MB CLDR statics. Apps then must call
+  # excludes the ~19 MB CLDR statics. Apps then must call
   # `IcuKit.init(data: IcuData.lazy(...))` to load per-locale postcards
   # at runtime. See the README's "Bundle size" section.
   #

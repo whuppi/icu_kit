@@ -48,19 +48,73 @@ PKG_ROOT="$(dirname "$SCRIPT_DIR")"
 VENDOR="$PKG_ROOT/vendor/icu4x"
 MANIFEST="$VENDOR/ffi/capi/Cargo.toml"
 
-json_get() { python3 -c "import json,sys;print(json.load(open('$PKG_ROOT/build.json'))$1)"; }
+json_get() {  # jq path, e.g. '.features.native' — fails loud on a missing key
+  command -v jq >/dev/null 2>&1 || { echo "Error: jq not found (needed to read build.json)" >&2; exit 2; }
+  jq -er "$1" "$PKG_ROOT/build.json" 2>/dev/null || {
+    echo "Error: '$1' not found in $PKG_ROOT/build.json" >&2
+    exit 2
+  }
+}
 
-CRATE=$(json_get "['crate']")
-NIGHTLY=$(json_get "['nightlyToolchain']")
-NATIVE_FEATURES="$(json_get "['features']['native']"),simple_logger"
-LEAN_FEATURES="$(json_get "['features']['nativeLean']"),simple_logger"
+# shellcheck source=/dev/null  # runtime path; not followed at lint time
+source "$SCRIPT_DIR/versions.env"
+
+# Materialize the PINNED binaryen (wasm-opt) into a version-keyed cache and
+# print the wasm-opt path. The pinned release is the ONLY wasm-opt source
+# (no Flutter-SDK copy, no PATH fallback) so every build optimizes with the
+# same hash-verified binary. The cache dir is keyed by BINARYEN_VERSION, so
+# a pin bump structurally invalidates the old binary.
+_install_binaryen() {
+  local exe="" asset sha url tmp
+  case "$(uname -s)" in
+    MINGW*|MSYS*) exe=".exe" ;;
+  esac
+  local dest_dir="${ICU_KIT_TOOL_CACHE:-$HOME/.cache/icu_kit}/binaryen/$BINARYEN_VERSION"
+  local wasm_opt="$dest_dir/bin/wasm-opt$exe"
+  if [ -x "$wasm_opt" ]; then printf '%s\n' "$wasm_opt"; return 0; fi
+
+  case "$(uname -s)" in
+    Linux*)  asset="binaryen-$BINARYEN_VERSION-x86_64-linux.tar.gz";   sha="$BINARYEN_SHA256_LINUX_X64" ;;
+    Darwin*) asset="binaryen-$BINARYEN_VERSION-arm64-macos.tar.gz";    sha="$BINARYEN_SHA256_MACOS_ARM64" ;;
+    MINGW*|MSYS*) asset="binaryen-$BINARYEN_VERSION-x86_64-windows.tar.gz"; sha="$BINARYEN_SHA256_WINDOWS_X64" ;;
+    *) echo "install binaryen: unsupported host $(uname -s)" >&2; return 1 ;;
+  esac
+  url="https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_VERSION/$asset"
+
+  echo "=== WASM: installing binaryen (wasm-opt) $BINARYEN_VERSION ===" >&2
+  tmp="${RUNNER_TEMP:-/tmp}"
+  # Convert a Windows temp path (D:\...) to Unix (/d/...) so tar doesn't read
+  # the colon as a remote host.
+  command -v cygpath &>/dev/null && tmp=$(cygpath -u "$tmp")
+  bash "$SCRIPT_DIR/fetch_verified.sh" "$url" "$sha" "$tmp/binaryen.tar.gz" >&2 \
+    || { echo "install binaryen: failed to fetch/verify $BINARYEN_VERSION" >&2; return 1; }
+  tar xzf "$tmp/binaryen.tar.gz" -C "$tmp"
+  mkdir -p "$dest_dir/bin" "$dest_dir/lib"
+  cp "$tmp/binaryen-$BINARYEN_VERSION/bin/wasm-opt"* "$dest_dir/bin/" \
+    || { echo "install binaryen: could not copy wasm-opt to $dest_dir/bin" >&2; return 1; }
+  # macOS/Linux builds link libbinaryen from ../lib relative to bin/.
+  cp "$tmp/binaryen-$BINARYEN_VERSION/lib/"* "$dest_dir/lib/" 2>/dev/null || true
+  rm -rf "$tmp/binaryen.tar.gz" "$tmp/binaryen-$BINARYEN_VERSION"
+  [ -x "$wasm_opt" ] || { echo "install binaryen: $wasm_opt missing after extract" >&2; return 1; }
+  printf '%s\n' "$wasm_opt"
+}
+
+CRATE=$(json_get '.crate')
+NIGHTLY=$(json_get '.nightlyToolchain')
+NATIVE_FEATURES="$(json_get '.features.native'),simple_logger"
+LEAN_FEATURES="$(json_get '.features.nativeLean'),simple_logger"
+
+if [ "${1:-}" = "--wasm-opt" ]; then
+  _install_binaryen
+  exit $?
+fi
 
 if [ "${1:-}" = "--features" ]; then
   case "${2:-native}" in
     native)    echo "$NATIVE_FEATURES" ;;
     lean)      echo "$LEAN_FEATURES" ;;
-    wasm)      json_get "['features']['wasm']" ;;
-    wasm-lean) json_get "['features']['wasmLean']" ;;
+    wasm)      json_get '.features.wasm' ;;
+    wasm-lean) json_get '.features.wasmLean' ;;
     *) echo "Usage: $0 --features [native|lean|wasm|wasm-lean]" >&2; exit 1 ;;
   esac
   exit 0
@@ -346,7 +400,7 @@ case "$MODE" in
   native)   do_native ;;
   all)      do_native; do_wasm ;;
   *)
-    echo "Usage: $0 {macos|ios|linux|android|windows|wasm|native|all|--features [native|lean|wasm|wasm-lean]}"
+    echo "Usage: $0 {macos|ios|linux|android|windows|wasm|native|all|--features [native|lean|wasm|wasm-lean]|--wasm-opt}"
     exit 1
     ;;
 esac

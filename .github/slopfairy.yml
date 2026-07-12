@@ -33,8 +33,8 @@ personality:
     - Powered by ICU4X (Rust) via FFI. Native assets build hook in hook/build.dart
     - Conventional commits enforced (feat:, fix:, ci:, chore:, docs:, etc.)
     - Versions and changelogs are managed by the shared whuppi/ci release
-      tooling (the release-tool action + a local tool/ci/release_hooks.sh
-      extension), gated on pushes to dev/prod — NOT release-please
+      tooling (the release-tool action), gated on pushes to dev/prod —
+      NOT release-please
     - Default branch is dev, prod branch is for stable releases
     - Linear chain: feature → dev → prod. No skipping.
 

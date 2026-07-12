@@ -115,7 +115,10 @@ grep -rl "icu_kit patch" ffi/capi/
 
    The Rust half checks `icu_capi` in BOTH feature configurations
    (bundled CLDR on and off) and fails on any cargo warning inside a
-   line we changed vs the base tag. The lean config is the one that
+   line we changed vs the base tag. Then run `make test-rust` — the
+   patched crate's cargo tests with the hook's native feature set — so
+   a mis-resolved rebase conflict fails here, not three layers up in a
+   Dart suite. The lean config is the one that
    catches feature-gated import gaps — fix them by cfg-gating the
    import to the config that uses it, never by adding a blanket import
    the other config warns on.

@@ -232,6 +232,7 @@ test-example-web: build-wasm
 # ── Verify: release builds of the example ──
 verify-android:
 	@cd example && $(FLUTTER) build apk --release
+	@bash tool/check_alignment.sh example/build/app/outputs/flutter-apk/app-release.apk
 
 verify-ios:
 	@cd example && $(FLUTTER) build ios --release --no-codesign

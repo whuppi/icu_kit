@@ -115,8 +115,10 @@ JSObject _breakIterator(JSObject seg, String input) {
   // Array.from materializes the Segments iterable; each segment's `.index` is
   // its UTF-16 start. Boundaries = [0, starts…, length]; the leading 0 is the
   // first segment's index (the facade reads it as `prev`). The facade's next()
-  // loop walks every boundary to -1, so this is the same total work as ICU4X's
-  // native iterator walk — full materialization, not a lazy stream, is fine.
+  // loop walks every boundary to -1, so total work matches ICU4X's native
+  // iterator walk. Peak heap is O(n) higher than a lazy Symbol.iterator walk
+  // would be — that (not throughput) is the one thing a streaming rewrite would
+  // improve, if very-long-string segmenting ever needs it.
   final arr = globalContext
       .getProperty<JSObject>('Array'.toJS)
       .callMethod<JSArray<JSObject>>('from'.toJS, segments)

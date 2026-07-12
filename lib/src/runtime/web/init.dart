@@ -168,7 +168,10 @@ class IcuKit {
         // Probe the flavor off diplomat-wasm.mjs — the sibling the loaded
         // module's classes already import-cache. Resolve it as the sibling in
         // [moduleUrl]'s own directory, not by rewriting an assumed 'index.mjs'
-        // filename, so an overridden [moduleUrl] still finds it.
+        // filename, so an overridden [moduleUrl] still finds it. A moduleUrl
+        // with no '/' gives dir '' → the bare 'diplomat-wasm.mjs', which
+        // resolves next to the page — the same place a bare module URL loads
+        // from, so the sibling is still found.
         final dir = moduleUrl.substring(0, moduleUrl.lastIndexOf('/') + 1);
         _hasCompiledData = await wasmHasCompiledData('${dir}diplomat-wasm.mjs');
       }

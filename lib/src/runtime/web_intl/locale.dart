@@ -97,6 +97,11 @@ JSObject _directionality() {
 /// first). Language priority: drop script (keeping region), then drop region.
 /// `en-Latn-US` → `en-US`, `en`. Region priority keeps the region one step
 /// longer (approximation of ICU4X's data-driven region chain).
+///
+/// PARTIAL vs ICU4X's CLDR parent-locale data: script-only and region-only
+/// tags collapse more simply than CLDR defines — `zh-Hant` → `zh` (script
+/// dropped), `es-419` → `es` (region dropped), `sr-Latn` → `sr`. CLDR keeps
+/// some of these distinctions through parent overrides; this chain does not.
 List<String> _fallbackChain(String tag, {required bool regionPriority}) {
   final lang = _language(tag);
   final script = _script(tag);

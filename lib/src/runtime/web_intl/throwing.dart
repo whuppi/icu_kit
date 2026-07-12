@@ -55,6 +55,12 @@ JSObject throwAllClass(String capability) {
 /// ones. NOT a curated allow-list: if a binding adds a class, the contract
 /// guard (which derives the required set from source) fails until this list
 /// and a registrar cover it. Keep sorted.
+///
+/// Mirrors the same names as the reviewed snapshot (surface_snapshot.g.dart).
+/// When you add or rename a class, regenerate that snapshot
+/// (tool/browser_engine/gen_surface_snapshot.dart) and update this list in the
+/// same pass — the chrome contract guard fails until the built module resolves
+/// every snapshot name.
 const kAllClasses = <String>[
   'Bidi',
   'BidiClass',

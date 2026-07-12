@@ -142,7 +142,8 @@ json_get() { python3 -c "import json,sys;print(json.load(open('$PKG_ROOT/build.j
 # build reads upstream build.sh's PINNED_CI_NIGHTLY (build_wasm.dart
 # delegates to it, no const of its own). A submodule bump can change
 # upstream's nightly — if build.json isn't bumped to match, native-static
-# and wasm would compile with DIFFERENT nightlies. See docs/UPDATING.md §4.
+# and wasm would compile with DIFFERENT nightlies. See the nightly-bump
+# procedure in docs/UPDATING.md.
 BUILDSH="$VENDOR/ffi/capi/build.sh"
 if [ -f "$BUILDSH" ]; then
   echo "=== Rust: nightly-pin consistency (build.json vs upstream build.sh) ==="
@@ -154,7 +155,7 @@ if [ -f "$BUILDSH" ]; then
     echo "            vendor/icu4x/ffi/capi/build.sh pins '$upstream_nightly'."
     echo "  The native-static and wasm builds would use different nightlies."
     echo "  Fix: set build.json nightlyToolchain to '$upstream_nightly'"
-    echo "  (see docs/UPDATING.md §4)."
+    echo "  (see the nightly-bump procedure in docs/UPDATING.md)."
     exit 1
   fi
   echo "  clean — both pin $json_nightly"

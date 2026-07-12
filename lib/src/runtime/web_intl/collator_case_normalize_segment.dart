@@ -107,18 +107,16 @@ JSObject _normalizer(String form) {
 
 // ── Segmenters (grapheme/word/sentence FULL; line THROW) ─────────────────
 
-// The break iterator: next() yields 0, then each boundary, then input length,
-// then -1 (the facade does `prev = next()` expecting the leading 0).
-JSObject _breakIterator(String tag, String granularity, String input) {
-  final seg = intlFormat(
-    'Segmenter',
-    tag,
-    jsOptions({'granularity': granularity.toJS}),
-  );
+// The break iterator over one input: next() yields 0, then each boundary, then
+// input length, then -1 (the facade does `prev = next()` expecting the leading
+// 0). [seg] is the reused Intl.Segmenter for this formatter.
+JSObject _breakIterator(JSObject seg, String input) {
   final segments = seg.callMethod<JSObject>('segment'.toJS, input.toJS);
   // Array.from materializes the Segments iterable; each segment's `.index` is
   // its UTF-16 start. Boundaries = [0, starts…, length]; the leading 0 is the
-  // first segment's index (the facade reads it as `prev`).
+  // first segment's index (the facade reads it as `prev`). The facade's next()
+  // loop walks every boundary to -1, so this is the same total work as ICU4X's
+  // native iterator walk — full materialization, not a lazy stream, is fine.
   final arr = globalContext
       .getProperty<JSObject>('Array'.toJS)
       .callMethod<JSArray<JSObject>>('from'.toJS, segments)
@@ -135,9 +133,16 @@ JSObject _breakIterator(String tag, String granularity, String input) {
 }
 
 JSObject _segmenter(String tag, String granularity) {
+  // Build the Intl.Segmenter ONCE — it is keyed only on (tag, granularity),
+  // both fixed for this formatter — and reuse it across segment() calls,
+  // matching ICU4X's create-once / segment-many shape.
+  final seg = intlFormat(
+    'Segmenter',
+    tag,
+    jsOptions({'granularity': granularity.toJS}),
+  );
   final o = JSObject();
-  JSObject segment(JSString input) =>
-      _breakIterator(tag, granularity, input.toDart);
+  JSObject segment(JSString input) => _breakIterator(seg, input.toDart);
   o.setProperty('segment'.toJS, segment.toJS);
   return o;
 }

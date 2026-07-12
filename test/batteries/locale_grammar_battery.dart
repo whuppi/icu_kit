@@ -32,6 +32,14 @@ final class LocaleLawCase {
 /// runner (browser_engine/grammar_chrome_test.dart) so the 27-entry table has
 /// ONE source. The full fleet table + footnotes live in
 /// facades_grammar_test.dart.
+///
+/// These cases exercise only the BAD-tag path: parsing rejects the tag BEFORE
+/// dispatch, so a facade that is otherwise unsupported on an engine (e.g.
+/// IcuExemplarCharacters on the browser-Intl engine) still throws
+/// IcuLocaleParseError here and passes on both runners. If a valid-tag
+/// construction law is ever added, tag any browser-unsupported case (a new
+/// dart_test.yaml tag such as 'experimental_exemplar') so the browser-engine
+/// runner skips the ones that engine cannot build.
 List<LocaleLawCase> allLocaleLawCases() => [
   LocaleLawCase('IcuLocale.parse', (l) => IcuLocale.parse(l)),
   LocaleLawCase('IcuCollator', (l) => IcuCollator(locale: l)),

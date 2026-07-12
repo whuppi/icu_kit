@@ -195,15 +195,19 @@ test-web-lean: build-wasm-lean
 	@cd test_fixtures/lean_smoke && $(DART) test -p chrome $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/web-lean.json
 
 # make test-browser-engine  The browser Intl engine end to end in real
-#                           Chrome — zero wasm, the app's classes served off
-#                           globalThis.Intl (ECMA-402). Runs the VM drift
-#                           guard (the shim's completeness radar) AND the
-#                           per-family behavior suites. No wasm build: the
-#                           whole point is that the browser ships the data.
+#                           Chrome — no ICU4X wasm blob, the app's classes
+#                           served off globalThis.Intl (ECMA-402). Runs the VM
+#                           drift guard (the shim's completeness radar) AND the
+#                           per-family behavior suites under BOTH web compilers:
+#                           dart2js AND dart2wasm. The shim is pure js_interop,
+#                           which can compile clean yet diverge at RUNTIME
+#                           between the two compilers (e.g. how a Symbol property
+#                           key marshals), so the suite runs on each. A build-
+#                           only wasm check would miss that class of bug.
 test-browser-engine:
-	@echo "=== Browser Intl engine suite (VM guard + Chrome behavior) ==="
+	@echo "=== Browser Intl engine suite (VM guard + Chrome dart2js + dart2wasm) ==="
 	@mkdir -p $(TEST_RESULTS_DIR)
-	@$(DART) test -p vm -p chrome $(TIMEOUT) test/browser_engine/ --file-reporter json:$(TEST_RESULTS_DIR)/browser-engine.json
+	@$(DART) test -p vm -p chrome -c chrome:dart2js -c chrome:dart2wasm $(TIMEOUT) test/browser_engine/ --file-reporter json:$(TEST_RESULTS_DIR)/browser-engine.json
 
 # ═══════════════════════════════════════════════════════════════════
 # § 3b — Example app (journeys + integration smoke + release verify)

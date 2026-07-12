@@ -193,10 +193,18 @@ String _zoneStyle(String create) => switch (create) {
 };
 
 JSObject _timeZone(String ianaId) {
+  // atDateTimeIso pins the zone to an instant: carry that iso + time on the
+  // returned zoneInfo so a DST-aware standalone TimeZoneFormatter reads the
+  // name against the caller's date (EDT vs EST), not a fixed reference. A
+  // zoneInfo that was never pinned (offset styles skip atDateTimeIso) has no
+  // date, and the formatter falls back to a reference instant.
+  JSObject pinned(JSObject iso, JSObject time) => JSObject()
+    ..setProperty('ianaId'.toJS, ianaId.toJS)
+    ..setProperty('_iso'.toJS, iso)
+    ..setProperty('_time'.toJS, time);
+
   final zoneInfo = JSObject()..setProperty('ianaId'.toJS, ianaId.toJS);
-  // atDateTimeIso pins the info to an instant; the id is all Intl needs.
-  JSObject at(JSObject iso, JSObject time) => zoneInfo;
-  zoneInfo.setProperty('atDateTimeIso'.toJS, at.toJS);
+  zoneInfo.setProperty('atDateTimeIso'.toJS, pinned.toJS);
 
   final tz = JSObject()..setProperty('ianaId'.toJS, ianaId.toJS);
   JSObject withOffset(JSObject offset) => zoneInfo;
@@ -223,9 +231,17 @@ JSObject _timeZoneFormatter(String tag, String create) {
         'timeZoneName': style.toJS,
       }),
     );
+    // Extract the name against the caller's pinned instant when present —
+    // DST-aware styles (specificLong/Short) need it (EDT vs EST); an unpinned
+    // zoneInfo uses a fixed reference.
+    final iso = zoneInfo.getProperty<JSObject?>('_iso'.toJS);
+    final time = zoneInfo.getProperty<JSObject?>('_time'.toJS);
+    final instant = iso == null || time == null
+        ? _zoneRefInstant()
+        : _utcDate(iso, time);
     final parts = fmt.callMethod<JSArray<JSObject>>(
       'formatToParts'.toJS,
-      _zoneRefInstant(),
+      instant,
     );
     for (final p in parts.toDart) {
       if (p.getProperty<JSString>('type'.toJS).toDart == 'timeZoneName') {

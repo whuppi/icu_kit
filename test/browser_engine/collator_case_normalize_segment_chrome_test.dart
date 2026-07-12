@@ -93,5 +93,20 @@ void main() {
       expect(bounds.last, 'foo bar'.length);
       expect(bounds, contains(3)); // end of 'foo'
     });
+    test('streams a long mixed BMP + surrogate input without drift', () {
+      // Exercises the lazy break-iterator's streaming loop + tail over many
+      // clusters: 'a' (1 UTF-16 unit) then '👍' (surrogate pair, 2 units).
+      final seg = IcuSegmenter.grapheme();
+      final input = 'a\u{1F44D}' * 1500; // 3000 clusters, 4500 UTF-16 units
+      final bounds = seg.boundaries(input);
+      expect(bounds.length, 3001); // one per cluster start + trailing length
+      expect(bounds.first, 0);
+      expect(bounds.last, input.length); // 4500
+      expect(bounds.take(5), [0, 1, 3, 4, 6]); // a@0 👍@1 a@3 👍@4 a@6
+      // Strictly increasing — no boundary dropped or duplicated across the run.
+      for (var i = 1; i < bounds.length; i++) {
+        expect(bounds[i], greaterThan(bounds[i - 1]));
+      }
+    });
   });
 }

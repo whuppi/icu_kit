@@ -112,29 +112,37 @@ JSObject _normalizer(String form) {
 
 // ── Segmenters (grapheme/word/sentence FULL; line THROW) ─────────────────
 
-// The break iterator over one input: next() yields 0, then each boundary, then
-// input length, then -1 (the facade does `prev = next()` expecting the leading
-// 0). [seg] is the reused Intl.Segmenter for this formatter.
+// `Symbol.iterator`, fetched once — the key for `segments[Symbol.iterator]()`.
+// Symbol-keyed callMethod is verified on both dart2js and dart2wasm.
+final JSAny _symbolIterator = globalContext
+    .getProperty<JSObject>('Symbol'.toJS)
+    .getProperty<JSAny>('iterator'.toJS);
+
+// The break iterator over one input. Drives the JS Segments iterator LAZILY —
+// one segment pulled per next() call, O(1) peak heap — mirroring ICU4X's native
+// break iterator, which also advances lazily rather than materializing every
+// boundary up front. The facade drives next() as a boundary stream: each
+// segment's UTF-16 `.index` (the first is 0), then `input.length` once the
+// iterator is exhausted, then -1 forever. [seg] is the reused Intl.Segmenter.
 JSObject _breakIterator(JSObject seg, String input) {
   final segments = seg.callMethod<JSObject>('segment'.toJS, input.toJS);
-  // Array.from materializes the Segments iterable; each segment's `.index` is
-  // its UTF-16 start. Boundaries = [0, starts…, length]; the leading 0 is the
-  // first segment's index (the facade reads it as `prev`). The facade's next()
-  // loop walks every boundary to -1, so total work matches ICU4X's native
-  // iterator walk. Peak heap is O(n) higher than a lazy Symbol.iterator walk
-  // would be — that (not throughput) is the one thing a streaming rewrite would
-  // improve, if very-long-string segmenting ever needs it.
-  final arr = globalContext
-      .getProperty<JSObject>('Array'.toJS)
-      .callMethod<JSArray<JSObject>>('from'.toJS, segments)
-      .toDart;
-  final bounds = [
-    for (final s in arr) s.getProperty<JSNumber>('index'.toJS).toDartInt,
-    input.length,
-  ];
-  var i = 0;
+  final iterator = segments.callMethod<JSObject>(_symbolIterator);
+  var finished = false; // iterator drained AND the trailing length emitted
   final o = JSObject();
-  JSNumber next() => (i < bounds.length ? bounds[i++] : -1).toJS;
+  JSNumber next() {
+    if (finished) return (-1).toJS;
+    final step = iterator.callMethod<JSObject>('next'.toJS);
+    if (step.getProperty<JSBoolean>('done'.toJS).toDart) {
+      finished = true;
+      return input.length.toJS; // trailing boundary after the last segment
+    }
+    return step
+        .getProperty<JSObject>('value'.toJS)
+        .getProperty<JSNumber>('index'.toJS)
+        .toDartInt
+        .toJS;
+  }
+
   o.setProperty('next'.toJS, next.toJS);
   return o;
 }

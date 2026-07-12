@@ -383,6 +383,34 @@ Future<void> _compileIcuCapi(
     if (isNoStd) 'RUSTFLAGS': '-Zunstable-options -Cpanic=immediate-abort',
   };
 
+  // Android: point cargo at the NDK clang driver Flutter provides. Without
+  // this cargo links Android targets with the HOST `cc` (mingw ld / host
+  // clang), which rejects the ELF flags and produces host-linked objects.
+  if (input.config.code.targetOS == OS.android) {
+    final cc = input.config.code.cCompiler;
+    if (cc != null) {
+      final compilerDir = p.dirname(p.fromUri(cc.compiler));
+      final ndkTriple = rustTarget == 'armv7-linux-androideabi'
+          ? 'armv7a-linux-androideabi'
+          : rustTarget;
+      // The NDK per-API clang driver is a `.cmd` batch wrapper on Windows
+      // hosts (e.g. aarch64-linux-android21-clang.cmd); passing the bare name
+      // makes cargo fail with "could not exec the linker ... program not
+      // found". Append the host executable extension so Android cross-compiles
+      // link from a Windows host as well as Linux/macOS. Platform.isWindows
+      // here is the BUILD host (which runs cargo), not the Android target.
+      final clangExt = Platform.isWindows ? '.cmd' : '';
+      final envKey =
+          'CARGO_TARGET_${rustTarget.toUpperCase().replaceAll('-', '_')}';
+      cargoEnv['${envKey}_LINKER'] = p.join(
+        compilerDir,
+        '${ndkTriple}21-clang$clangExt',
+      );
+      cargoEnv['${envKey}_AR'] = p.join(compilerDir, 'llvm-ar');
+      _log.info('NDK linker: ${cargoEnv['${envKey}_LINKER']}');
+    }
+  }
+
   final workdir = Directory.fromUri(submodule);
   final crateType = buildStatic ? 'staticlib' : 'cdylib';
 

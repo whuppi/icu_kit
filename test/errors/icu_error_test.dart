@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 void main() {
   group('IcuError sealed hierarchy', () {
     test('IcuLocaleParseError carries the offending input', () {
-      const e = IcuLocaleParseError('not-a-locale');
+      final e = IcuLocaleParseError('not-a-locale');
       expect(e.input, 'not-a-locale');
       expect(e.message, contains('not-a-locale'));
       expect(e, isA<IcuError>());
@@ -51,7 +51,7 @@ void main() {
         IcuIdnaError() => 'idna',
       };
 
-      expect(describe(const IcuLocaleParseError('x')), 'parse');
+      expect(describe(IcuLocaleParseError('x')), 'parse');
       expect(describe(const IcuDataError('m')), 'data');
       expect(
         describe(const IcuMissingDataError('m', locale: 'fr')),
@@ -67,7 +67,7 @@ void main() {
 
     test('IcuError implements Exception (catchable as Exception)', () {
       try {
-        throw const IcuLocaleParseError('bad');
+        throw IcuLocaleParseError('bad');
       } on Exception catch (e) {
         expect(e, isA<IcuError>());
       }

@@ -48,8 +48,8 @@ final class IcuLocaleCanonicalizer {
     final icu.Locale loc;
     try {
       loc = icu.Locale.fromString(tag);
-    } catch (_) {
-      throw IcuLocaleParseError(tag);
+    } catch (e) {
+      throw IcuLocaleParseError(tag, cause: e);
     }
     _ffi.canonicalize(loc);
     return loc.asBcp47;

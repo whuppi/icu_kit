@@ -130,7 +130,7 @@ jobs:
 
           # ── Integration smokes (real library, real targets — each cross-
           #    compiles icu_capi for that platform) ──
-          - { name: "int: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: test-example-android, timeout: 60, java: true, hw-accel: true, gradle-cache: true, emulator: true, free-disk: true }
+          - { name: "int: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: test-example-android, timeout: 60, java: true, hw-accel: true, gradle-cache: true, emulator: true }
           - { name: "int: Android (macos-intel) [P]", runner: macos-15-intel,      make: test-example-android, timeout: 80, java: true, hw-accel: true, gradle-cache: true, emulator: true, portability: true }
           - { name: "int: Android (win-x64) [P]",     runner: windows-2025-vs2026, make: test-example-android, timeout: 80, java: true, hw-accel: true, gradle-cache: true, emulator: true, portability: true }
           - { name: "int: iOS (macos-arm64)",      runner: macos-14,            make: test-example-ios,     timeout: 60, xcode-cache: true, xcode-cache-target: ios, pods-cache: true, simulator: true }
@@ -142,7 +142,7 @@ jobs:
           - { name: "int: Web (win-x64) [P]",      runner: windows-2025-vs2026, make: test-example-web, timeout: 60, chrome: true, wasm-cache: true, wasm-build: true, portability: true }
 
           # ── Verify — release builds of the example per target ──
-          - { name: "verify: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: verify-android, timeout: 50, java: true, gradle-cache: true, free-disk: true }
+          - { name: "verify: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: verify-android, timeout: 50, java: true, gradle-cache: true }
           - { name: "verify: Android (macos-arm64) [P]", runner: macos-14,            make: verify-android, timeout: 50, java: true, gradle-cache: true, portability: true }
           - { name: "verify: Android (win-x64) [P]",     runner: windows-2025-vs2026, make: verify-android, timeout: 70, java: true, gradle-cache: true, portability: true }
           - { name: "verify: iOS (macos-arm64)",    runner: macos-14,            make: verify-ios,     timeout: 50, xcode-cache: true, xcode-cache-target: ios, pods-cache: true }
@@ -191,7 +191,6 @@ jobs:
           wasm-build: ${{ matrix.wasm-build || 'false' }}
           emulator: ${{ matrix.emulator || 'false' }}
           simulator: ${{ matrix.simulator || 'false' }}
-          free-disk: ${{ matrix.free-disk || 'false' }}
       - name: Upload test results
         if: always() && steps.filter.outputs.match == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

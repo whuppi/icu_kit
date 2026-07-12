@@ -14,9 +14,16 @@ sealed class IcuError implements Exception {
 
 /// The locale string failed to parse as a BCP-47 identifier.
 final class IcuLocaleParseError extends IcuError {
-  /// Create the error for the unparseable [input].
-  const IcuLocaleParseError(this.input)
-    : super('Invalid BCP-47 locale: "$input"');
+  /// Create the error for the unparseable [input]. [cause] is the underlying
+  /// binding error — kept in the message so an unexpected failure (a missing
+  /// symbol, an FFI fault) is diagnosable instead of masquerading as a plain
+  /// bad tag.
+  IcuLocaleParseError(this.input, {Object? cause})
+    : super(
+        cause == null
+            ? 'Invalid BCP-47 locale: "$input"'
+            : 'Invalid BCP-47 locale: "$input" (cause: $cause)',
+      );
 
   /// The string that failed to parse.
   final String input;

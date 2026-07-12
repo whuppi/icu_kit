@@ -72,8 +72,8 @@ final class IcuLocaleExpander {
   icu.Locale _parse(String tag) {
     try {
       return icu.Locale.fromString(tag);
-    } catch (_) {
-      throw IcuLocaleParseError(tag);
+    } catch (e) {
+      throw IcuLocaleParseError(tag, cause: e);
     }
   }
 }

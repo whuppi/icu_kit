@@ -22,6 +22,13 @@ DART    ?= fvm dart
 FLUTTER ?= fvm flutter
 CARGO   ?= cargo
 TEST_RESULTS_DIR ?= test-results
+
+# GTK check — CI auto-installs, dev gets error with instructions.
+define ensure_gtk
+	@command -v pkg-config >/dev/null && pkg-config --exists gtk+-3.0 || { \
+		if [ -n "$$CI" ]; then sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build libgtk-3-dev; \
+		else echo "Error: libgtk-3-dev not found. Run: sudo apt-get install -y ninja-build libgtk-3-dev"; exit 1; fi; }
+endef
 TIMEOUT := $(if $(CI),--timeout=30x,)
 VERBOSE := $(if $(CI),--verbose,)
 
@@ -127,7 +134,11 @@ test-rust:
 test-lean:
 	@echo "=== Lean-binary suite (hook builds the no-CLDR flavor) ==="
 	@mkdir -p $(TEST_RESULTS_DIR)
-	@cd test_fixtures/lean_smoke && $(DART) test $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/lean.json
+	@# Explicit pub get first: when `dart test` resolves deps implicitly
+	@# (fresh checkout, no .dart_tool), the build hook runs but its native
+	@# asset never reaches the test runtime — every FFI call then dies with
+	@# "No available native assets". Deterministic; keep the two-step.
+	@cd test_fixtures/lean_smoke && $(DART) pub get && $(DART) test $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/lean.json
 
 # make test-guards  Mechanical suite rules. Every suite here runs on BOTH
 #                   the VM and Chrome, so a VM-only import in a shared suite
@@ -225,6 +236,7 @@ test-example-ios:
 	@cd example && $(FLUTTER) test $(VERBOSE) $(TIMEOUT) integration_test/icu_kit_smoke_test.dart --file-reporter json:../$(TEST_RESULTS_DIR)/int-ios.json
 
 test-example-linux:
+	$(call ensure_gtk)
 	@mkdir -p $(TEST_RESULTS_DIR)
 	@cd example && $(FLUTTER) test $(VERBOSE) $(TIMEOUT) integration_test/icu_kit_smoke_test.dart -d linux --file-reporter json:../$(TEST_RESULTS_DIR)/int-linux.json
 
@@ -236,10 +248,7 @@ test-example-windows:
 # consumer setup executable; build-wasm produces the artifact first.
 test-example-web: build-wasm
 	@cd example && $(FLUTTER) pub get && $(FLUTTER) pub run icu_kit:setup --force web
-	@cd example && $(FLUTTER) drive \
-		--driver=test_driver/integration_test.dart \
-		--target=integration_test/icu_kit_smoke_test.dart \
-		-d chrome --browser-name=chrome --headless
+	@./tool/run_web_test.sh $(FLUTTER)
 
 # ── Verify: release builds of the example ──
 verify: verify-android verify-ios verify-macos verify-linux verify-windows verify-web verify-web-lean
@@ -255,6 +264,7 @@ verify-macos:
 	@cd example && $(FLUTTER) build macos --release
 
 verify-linux:
+	$(call ensure_gtk)
 	@cd example && $(FLUTTER) build linux --release
 
 verify-windows:

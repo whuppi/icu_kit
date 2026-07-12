@@ -64,6 +64,13 @@ source "$SCRIPT_DIR/versions.env"
 # (no Flutter-SDK copy, no PATH fallback) so every build optimizes with the
 # same hash-verified binary. The cache dir is keyed by BINARYEN_VERSION, so
 # a pin bump structurally invalidates the old binary.
+# Print a path Dart's Process.run can exec. Git Bash's /c/... form is not a
+# real Windows path — CreateProcess can't resolve it — so emit mixed C:/...
+# there (bash executes that form fine too).
+_native_path() {
+  if command -v cygpath &>/dev/null; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
+}
+
 _install_binaryen() {
   local exe="" asset sha url tmp
   case "$(uname -s)" in
@@ -71,7 +78,7 @@ _install_binaryen() {
   esac
   local dest_dir="${ICU_KIT_TOOL_CACHE:-$HOME/.cache/icu_kit}/binaryen/$BINARYEN_VERSION"
   local wasm_opt="$dest_dir/bin/wasm-opt$exe"
-  if [ -x "$wasm_opt" ]; then printf '%s\n' "$wasm_opt"; return 0; fi
+  if [ -x "$wasm_opt" ]; then _native_path "$wasm_opt"; return 0; fi
 
   case "$(uname -s)" in
     Linux*)  asset="binaryen-$BINARYEN_VERSION-x86_64-linux.tar.gz";   sha="$BINARYEN_SHA256_LINUX_X64" ;;
@@ -96,7 +103,7 @@ _install_binaryen() {
   cp "$tmp/binaryen-$BINARYEN_VERSION/lib/"* "$dest_dir/lib/" 2>/dev/null || true
   rm -rf "$tmp/binaryen.tar.gz" "$tmp/binaryen-$BINARYEN_VERSION"
   [ -x "$wasm_opt" ] || { echo "install binaryen: $wasm_opt missing after extract" >&2; return 1; }
-  printf '%s\n' "$wasm_opt"
+  _native_path "$wasm_opt"
 }
 
 CRATE=$(json_get '.crate')

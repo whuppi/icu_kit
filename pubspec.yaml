@@ -59,7 +59,7 @@ dependencies:
   ffi: ^2.1.0
 
   # Build hook + bin/setup.dart — package root resolution
-  package_config: '>=2.1.0 <4.0.0'
+  package_config: ">=2.1.0 <4.0.0"
 
   # Build hook + resolver — cross-platform path handling
   path: ^1.9.0

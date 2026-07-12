@@ -1,6 +1,6 @@
 // Throw-all class slots + the default registration for every module class.
 //
-// install.dart registers a throw-all for all 61 classes FIRST; the family
+// install.dart registers a throw-all for all 77 classes FIRST; the family
 // registrars (§3a–§3f) then override the ones the browser engine implements.
 // Whatever stays a throw-all is a genuine THROW capability (§3g) — bidi,
 // Unicode properties, IDNA, exemplar characters, line segmentation. The

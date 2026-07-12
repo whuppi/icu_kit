@@ -93,6 +93,11 @@ JSObject _normalizer(String form) {
     if (n == str) return str.length.toJS;
     var i = 0;
     final min = str.length < n.length ? str.length : n.length;
+    // Compares UTF-16 code units; ICU4X's is_normalized_up_to counts code
+    // points. Identical for NFC/NFD and the common cases; an NFKC/NFKD compat
+    // decomposition that swaps a supplementary code point for a BMP sequence
+    // could return a code-unit index inside what was a surrogate pair,
+    // differing from ICU4X's code-point count. Accepted: Dart strings are UTF-16.
     while (i < min && str.codeUnitAt(i) == n.codeUnitAt(i)) {
       i++;
     }

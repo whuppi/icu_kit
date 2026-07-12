@@ -148,12 +148,3 @@ void setLocaleTag(JSObject locale, String tag) {
 /// Read a Locale opaque's canonical tag. Every shim Locale carries `{tag}`.
 String localeTag(JSObject locale) =>
     locale.getProperty<JSString>('tag'.toJS).toDart;
-
-/// A small keyed cache so formatter facades that construct once and format
-/// many times don't rebuild the `Intl.*` object per call.
-class IntlCache<T extends JSObject> {
-  final _byKey = <String, T>{};
-
-  /// The cached value for [key], or [build]'s result cached under it.
-  T of(String key, T Function() build) => _byKey.putIfAbsent(key, build);
-}

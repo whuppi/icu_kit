@@ -221,6 +221,9 @@ JSObject _timeZoneFormatter(String tag, String create) {
         return p.getProperty<JSString>('value'.toJS).toDart;
       }
     }
+    // Unreachable for the offset/generic styles that reach here — each yields
+    // a timeZoneName part. Do NOT fall back to the raw IANA id: ICU4X never
+    // emits it, so leaking it would diverge from the native engine.
     return '';
   }
 

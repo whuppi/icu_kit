@@ -33,7 +33,23 @@ JSObject _collator(JSObject locale, JSObject options) {
   final ignorePunctuation = altOpt == null
       ? null
       : enumStringValue(altOpt) == 'Shifted';
-  // caseLevel / maxVariable have no Intl.Collator mapping (PARTIAL).
+
+  // caseLevel / maxVariable have no Intl.Collator mapping. Rather than run with
+  // the default (a silently wrong sort order), throw — same as the unmappable
+  // strengths above. caseLevel adds a separate case level Intl can't express;
+  // maxVariable only matters under shifted, where Intl shifts punctuation only.
+  final caseLevelOpt = options.getProperty<JSObject?>('caseLevel'.toJS);
+  if (caseLevelOpt != null && enumStringValue(caseLevelOpt) == 'On') {
+    unsupported('IcuCollator caseLevel On (browser Intl has no case level)');
+  }
+  final maxVarOpt = options.getProperty<JSObject?>('maxVariable'.toJS);
+  final maxVar = maxVarOpt == null ? null : enumStringValue(maxVarOpt);
+  if (ignorePunctuation == true && maxVar != null && maxVar != 'Punctuation') {
+    unsupported(
+      'IcuCollator maxVariable $maxVar with shifted handling '
+      '(browser Intl shifts punctuation only)',
+    );
+  }
 
   final col = intlFormat(
     'Collator',

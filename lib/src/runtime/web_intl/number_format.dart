@@ -187,12 +187,25 @@ String _unitDisplay(JSObject? width) {
 JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
   final tag = localeTag(locale);
   final display = _unitDisplay(width);
+  // Validate the unit at CREATION: Intl.NumberFormat throws RangeError for
+  // units outside the ECMA-402 sanctioned set (smaller than ICU4X's). Surface
+  // it as a typed IcuUnsupportedError here, where the facade wraps creation
+  // errors — not as a raw JS RangeError escaping the per-value format() call.
+  try {
+    intlFormat(
+      'NumberFormat',
+      tag,
+      jsOptions({'style': 'unit'.toJS, 'unit': unitId}),
+    );
+  } catch (_) {
+    unsupported(
+      'IcuUnitFormat unit "${unitId.toDart}" (not in the browser Intl unit set)',
+    );
+  }
   final o = JSObject();
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
     final k = _fractionDigits(s);
-    // Intl throws RangeError for units outside the ECMA-402 sanctioned set;
-    // that surfaces to the facade as an unavailable-unit error.
     return _fmt(
       tag,
       jsOptions({

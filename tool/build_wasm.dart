@@ -41,11 +41,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-const _icu4xTag = 'icu@2.2.0';
+/// Feature lists and the base tag come from build.json — the single source
+/// of truth the compile script and analysis gate also read. Do not add a
+/// features or tag const here; that drifts on the next submodule bump.
+String _baseTagFromBuildJson() =>
+    (jsonDecode(File('build.json').readAsStringSync())
+            as Map<String, dynamic>)['baseTag']
+        as String;
 
-/// Feature lists come from build.json (`features.wasm` / `features.wasmLean`)
-/// — the single source of truth the compile script and analysis gate also
-/// read. Do not add a features const here; that drifts.
 String _featuresFromBuildJson(Directory pkgRoot, {required bool lean}) {
   final json =
       jsonDecode(File('${pkgRoot.path}/build.json').readAsStringSync())
@@ -185,7 +188,10 @@ Future<void> _buildWasm({
   required String features,
 }) async {
   final name = outWasm.split('/').last;
-  print('Building $name from $_icu4xTag (this takes ~70 s clean)...');
+  print(
+    'Building $name from ${_baseTagFromBuildJson()} '
+    '(this takes ~70 s clean)...',
+  );
 
   final result = await Process.start(
     'bash',

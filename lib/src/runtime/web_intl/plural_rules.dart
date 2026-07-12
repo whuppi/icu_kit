@@ -2,7 +2,10 @@
 //
 // DOCUMENTED GAP: plural operands are parsed as a JS number, so explicit
 // trailing fraction zeros ("1.0") lose their CLDR v/f operands — categories
-// may differ for locales whose rules depend on them. PARTIAL.
+// may differ for locales whose rules depend on them. PARTIAL. When
+// Intl.PluralRules gains string/BigInt operand support (the operand-preserving
+// proposal, Stage 3), pass the raw operand string to select() instead of
+// double.parse to keep the v/f operands.
 library;
 
 import 'dart:js_interop';

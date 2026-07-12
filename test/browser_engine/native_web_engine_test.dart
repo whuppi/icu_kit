@@ -15,6 +15,9 @@ void main() {
   });
 
   test('IcuKit.engine is "native" on native', () {
+    // Order-independent: native reports 'native' unconditionally (the getter is
+    // not gated on init), so this holds regardless of whether the test above
+    // ran first or these run in separate isolates.
     expect(IcuKit.engine, 'native');
   });
 }

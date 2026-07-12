@@ -68,6 +68,33 @@ void main() {
       expect(out, isNot(contains('4200')));
     }, tags: ['experimental_percent']);
 
+    test(
+      'percent affix survives a prefix-% locale (Turkish)',
+      () {
+        // Turkish puts the percent sign BEFORE the number ("%42"), exercising
+        // _percentAffix's before-branch that the en-US suffix test doesn't —
+        // a structural guard against Intl part-grouping changes dropping the sign.
+        final out = IcuPercentFormat(locale: 'tr').format(42);
+        expect(out, contains('42'));
+        expect(out, contains('%'));
+      },
+      tags: ['experimental_percent'],
+    );
+
+    test(
+      'a unit outside the browser Intl set throws (ICU4X has more)',
+      () {
+        // furlong is a real CLDR/ICU4X unit but NOT ECMA-402 sanctioned, so the
+        // browser engine rejects it — as a typed IcuUnsupportedError at creation,
+        // not a raw JS RangeError at format time.
+        expect(
+          () => IcuUnitFormat(locale: 'en-US', unit: 'furlong'),
+          throwsA(isA<IcuUnsupportedError>()),
+        );
+      },
+      tags: ['experimental_unit'],
+    );
+
     test('unit formats with the unit', () {
       final out = IcuUnitFormat(locale: 'en-US', unit: 'hour').format(5);
       expect(out, contains('5'));

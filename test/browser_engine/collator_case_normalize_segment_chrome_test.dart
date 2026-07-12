@@ -36,6 +36,22 @@ void main() {
         throwsA(isA<IcuUnsupportedError>()),
       );
     });
+    test('caseLevel On throws (browser Intl has no case level)', () {
+      expect(
+        () => IcuCollator(locale: 'en-US', caseLevel: IcuCollatorCaseLevel.on),
+        throwsA(isA<IcuUnsupportedError>()),
+      );
+    });
+    test('non-punctuation maxVariable under shifted throws', () {
+      expect(
+        () => IcuCollator(
+          locale: 'en-US',
+          alternateHandling: IcuCollatorAlternateHandling.shifted,
+          maxVariable: IcuCollatorMaxVariable.symbol,
+        ),
+        throwsA(isA<IcuUnsupportedError>()),
+      );
+    });
   });
 
   group('IcuCaseMapper', () {

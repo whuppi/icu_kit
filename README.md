@@ -658,7 +658,7 @@ The `IcuData` argument to `init()` chooses which data serves and how a missing l
 - `IcuData.lazy(source)` loads postcards on demand, from assets or from your server. The lean path.
 - `IcuData.composite([bundled, lazy])` tries the binary's data first, then the postcards. This is the one call that works unchanged on **both** binaries: on a fat binary the bundled tier serves and the postcards are never read; on a lean binary the bundled tier has nothing and the postcards serve. Useful when the same code ships in apps with different builds — the example app runs this way (see [`example_lean/`](example_lean/)).
 
-At startup, `IcuKit.init` checks the binary it actually loaded against this argument and throws an actionable error on a mismatch: a lean binary with no lazy source configured fails at init, not mid-run. The full binary × `IcuData` truth table is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); the short version is that only one combination is fatal (lean binary, bundled-only data) and one is wasteful (fat binary, lazy-only data — you ship ~21 MB and never read it; init logs a warning).
+At startup, `IcuKit.init` checks the binary it actually loaded against this argument and throws an actionable error on a mismatch: a lean binary with no lazy source configured fails at init, not mid-run. The full binary × `IcuData` truth table is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); the short version is that only one combination is fatal (lean binary, bundled-only data) and one is wasteful (fat binary, lazy-only data — you ship ~19 MB of CLDR and never read it; init logs a warning).
 
 </details>
 
@@ -739,7 +739,7 @@ On capabilities, icu_kit is a superset of the Dart alternatives: everything they
 
 **"What about ICU4C?"** The C++ classic — reasonable on servers where it's already installed. It's ~30 MB with data and doesn't compile cleanly to WebAssembly; ICU4X was designed for the client-side world icu_kit lives in.
 
-And if your app ships one language and formats nothing, use string constants — don't pay ~21 MB of CLDR for data you never read.
+And if your app ships one language and formats nothing, use string constants — don't pay ~19 MB of CLDR for data you never read.
 
 ---
 

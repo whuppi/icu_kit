@@ -48,7 +48,13 @@ PKG_ROOT="$(dirname "$SCRIPT_DIR")"
 VENDOR="$PKG_ROOT/vendor/icu4x"
 MANIFEST="$VENDOR/ffi/capi/Cargo.toml"
 
-json_get() { python3 -c "import json,sys;print(json.load(open('$PKG_ROOT/build.json'))$1)"; }
+json_get() {  # jq path, e.g. '.features.native' — fails loud on a missing key
+  command -v jq >/dev/null 2>&1 || { echo "Error: jq not found (needed to read build.json)" >&2; exit 2; }
+  jq -er "$1" "$PKG_ROOT/build.json" 2>/dev/null || {
+    echo "Error: '$1' not found in $PKG_ROOT/build.json" >&2
+    exit 2
+  }
+}
 
 # shellcheck source=/dev/null  # runtime path; not followed at lint time
 source "$SCRIPT_DIR/versions.env"
@@ -93,10 +99,10 @@ _install_binaryen() {
   printf '%s\n' "$wasm_opt"
 }
 
-CRATE=$(json_get "['crate']")
-NIGHTLY=$(json_get "['nightlyToolchain']")
-NATIVE_FEATURES="$(json_get "['features']['native']"),simple_logger"
-LEAN_FEATURES="$(json_get "['features']['nativeLean']"),simple_logger"
+CRATE=$(json_get '.crate')
+NIGHTLY=$(json_get '.nightlyToolchain')
+NATIVE_FEATURES="$(json_get '.features.native'),simple_logger"
+LEAN_FEATURES="$(json_get '.features.nativeLean'),simple_logger"
 
 if [ "${1:-}" = "--wasm-opt" ]; then
   _install_binaryen
@@ -107,8 +113,8 @@ if [ "${1:-}" = "--features" ]; then
   case "${2:-native}" in
     native)    echo "$NATIVE_FEATURES" ;;
     lean)      echo "$LEAN_FEATURES" ;;
-    wasm)      json_get "['features']['wasm']" ;;
-    wasm-lean) json_get "['features']['wasmLean']" ;;
+    wasm)      json_get '.features.wasm' ;;
+    wasm-lean) json_get '.features.wasmLean' ;;
     *) echo "Usage: $0 --features [native|lean|wasm|wasm-lean]" >&2; exit 1 ;;
   esac
   exit 0

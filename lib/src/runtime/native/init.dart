@@ -122,7 +122,7 @@ class IcuKit {
       _log.warning(
         'This icu_kit binary carries the full compiled CLDR, but '
         'IcuKit.init() was called with a lazy-only IcuData. The binary '
-        "ships ~21 MB of CLDR data that's never used. To remove the "
+        "ships ~19 MB of CLDR data that's never used. To remove the "
         'bake-in, set `bundleCldrData: false` in your pubspec.yaml under '
         'hooks > user_defines > icu_kit.',
       );

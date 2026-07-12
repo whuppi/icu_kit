@@ -112,7 +112,7 @@ jobs:
 
           # ── WASM build — proves the web artifact still builds from the
           #    vendored source (nightly Rust self-provisioned by the tool;
-          #    wasm-opt from the Flutter SDK the runner installs) ──
+          #    wasm-opt from the pinned binaryen cache (compile_rust.sh --wasm-opt)) ──
           - { name: "wasm: build (ubuntu-x64)",       runner: ubuntu-24.04,        make: build-wasm, timeout: 40 }
           - { name: "wasm: build (macos-arm64) [P]",  runner: macos-14,            make: build-wasm, timeout: 40, portability: true }
 
@@ -191,6 +191,7 @@ jobs:
           wasm-build: ${{ matrix.wasm-build || 'false' }}
           emulator: ${{ matrix.emulator || 'false' }}
           simulator: ${{ matrix.simulator || 'false' }}
+          free-disk: ${{ matrix.free-disk || 'false' }}
       - name: Upload test results
         if: always() && steps.filter.outputs.match == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

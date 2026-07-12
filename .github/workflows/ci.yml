@@ -60,10 +60,13 @@ jobs:
             code:
               - 'lib/**'
               - 'test/**'
+              - 'test_fixtures/**'
+              - 'bin/**'
               - 'hook/**'
               - 'vendor/**'
               - 'web_assets/**'
               - 'example/**'
+              - 'example_lean/**'
               - 'pubspec.yaml'
               - 'analysis_options.yaml'
               - 'Makefile'

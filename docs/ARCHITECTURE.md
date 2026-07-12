@@ -434,7 +434,145 @@ When a divergence is discovered, document it here and add a unit test that fails
 
 ---
 
-## 10. Where to look when X happens
+## 10. CI/CD architecture
+
+### Vocabulary
+
+| Term | Meaning | Example |
+|---|---|---|
+| **target** | What you build for | android, ios, macos, linux, windows, web |
+| **runner** | CI machine that runs the job (each workflow sets its own) | e.g. `ubuntu-24.04` |
+| **host** | Machine doing the building (CI or dev) | `Platform.isMacOS`, `uname` |
+| **capability** | One installable concern | fvm, rust, java, chrome, headless-display |
+| **build** | Compile for dev iteration | `make build-wasm` |
+| **compile** | Produce release binaries for upload | `make compile-macos` |
+| **verify** | Prove release build works (output thrown away) | `make verify-android` |
+| **test** | Run test suites | `make test`, `make test-lean` |
+| **release** | Publish a version (tag, upload, pub.dev) | `release.sh --discover` |
+
+"Platform" is not used internally. "Cross-platform" is kept in
+user-facing text (README, pubspec).
+
+### Principles
+
+1. **Makefile is the interface.** CI runs `make <target>`. All build
+   logic lives in Makefile and scripts. CI YAML has zero build logic.
+
+2. **Scripts handle their own deps.** Rust targets, the pinned nightly,
+   binaryen — provisioned by the script that needs them. `rustup target
+   add` and toolchain installs are always safe (user-space). binaryen is
+   a hash-verified download into a version-keyed cache
+   (`compile_rust.sh --wasm-opt`).
+
+3. **jq is the JSON tool for bash.** Bash reads `build.json` through the
+   jq-backed `json_get` (compile_rust.sh, analyze.sh); the build hook
+   reads it in Dart. One documented exception: analyze.sh's
+   warning-diff step uses a python3 heredoc — it runs only on the
+   analyze gate (ubuntu/macos runners), never in the release compile
+   path.
+
+4. **The capability model and the single `make-target` orchestrator are
+   the shared model.** See whuppi/ci/docs/ARCHITECTURE.md "make-target —
+   the orchestration contract".
+
+5. **Runners are configurable.** Every workflow resolves its runner in
+   one identical `inputs` job — `runs-on: ${{ needs.inputs.outputs.runner }}`
+   on every real job. Test/compile jobs add per-row matrix runners.
+
+6. **Matrix row is the manifest.** Each row declares which capabilities
+   to activate and which runner to use. Adding a new combo = one line.
+   Adding a new capability = one action + one input on `make-target` +
+   add to rows that need it.
+
+7. **Every job is named.** The YAML key is the code handle (terse,
+   lowercase, hyphen-free where used in `needs` expressions); `name:` is
+   the human label and is required on every job. Matrix jobs set
+   `name: <prefix>: ${{ matrix.name }}`.
+
+### Actions
+
+icu_kit carries three local capabilities under
+`.github/actions/capabilities/`:
+
+- **`rust/`** — Rust toolchain + sccache. Sets the icu4x submodule rev
+  the wasm and xcode caches key on.
+- **`wasm-cache/`** — caches WASM build output (both flavors).
+- **`wasm-build/`** — builds the WASM on a cache miss.
+
+The local `make-target` wrapper provisions these before delegating the
+generic run to whuppi/ci.
+
+### Workflows
+
+`ci.yml`, `full-test.yml`, `release.yml` are local workflows whose jobs
+call the local `make-target` wrapper (which delegates to whuppi/ci); the
+rest are thin callers to whuppi/ci reusable workflows.
+
+| Workflow | Trigger | Kind |
+|---|---|---|
+| `ci.yml` | PR to prod/dev | Local — jobs call `make-target` (→ whuppi/ci) |
+| `full-test.yml` | `ready-to-test` label or dispatch | Local — matrix jobs call `make-target` |
+| `release.yml` | Changelog push or dispatch | Local — compile matrix + `release-tool` |
+| `debug-ssh.yml` | Dispatch only | Local — uses shared `debug-ssh` action |
+| `pr-checks.yml` | PR to prod/dev | Thin caller → whuppi/ci reusable + the local pin-availability job |
+| `triage.yml` | Issues / fork PRs | Thin caller → whuppi/ci reusable (privileged) |
+| `retry.yml` | CI / Full Test completed | Thin caller → whuppi/ci reusable (privileged) |
+| `auto-close.yml` | Schedule / issues / comments | Thin caller → whuppi/ci reusable |
+| `labels.yml` | Label config push / dispatch | Thin caller → whuppi/ci reusable |
+| `upgrade-check.yml` | Daily / dispatch | Thin caller → whuppi/ci reusable + the local pins job |
+
+### Workflow security
+
+`triage` and `retry` are privileged (fork-triggerable write). The
+hardening lives once in the shared reusables. See
+whuppi/ci/docs/ARCHITECTURE.md "The repo guard".
+
+### Test matrix (full-test.yml)
+
+Single matrix with two tiers in one sorted list:
+
+- **Core rows** — one runner per target, proves the code works.
+- **Portability rows `[P]`** — extra runners, proves any dev machine can
+  build with this package.
+
+| Category | Core | Portability [P] |
+|---|---|---|
+| Package suites | VM + chrome (ubuntu) | chrome on macos + win |
+| Lean lanes | lean smoke, lean wasm, lean example journeys (ubuntu) | — |
+| Integration smokes | Android, iOS, Linux, macOS, Windows, Web | Android on macos-intel + win, Web on macos + win |
+| Verify (release builds) | Android (+16 KB alignment gate), iOS, Linux, macOS, Windows, Web, Lean Web | Android/Web/Lean-Web on extra hosts |
+
+### Build inputs — `build.json` vs `versions.env`
+
+Two files hold the project's pinned inputs, split by *what the value is*:
+
+- **`build.json`** — facts about the **subject** being built: the
+  vendored icu4x fork (`crate`, `repo`, `baseTag`), the pinned Rust
+  `nightlyToolchain` (matched against upstream's build.sh by
+  `make analyze`), the cargo `features` per flavor, the wasm outputs and
+  web asset maps. Read by `hook/build.dart` (jsonDecode) and by
+  `compile_rust.sh` / `analyze.sh` via the jq-backed `json_get`.
+- **`tool/versions.env`** — pinned versions + sha256 hashes of the
+  external **instruments**: binaryen (+ three per-platform sha256,
+  verified by `tool/fetch_verified.sh`) and the pana pin. Bot-owned —
+  auto-bumped by `tool/ci/upgrade.sh`.
+
+The rule: a fact about *what* is built belongs in `build.json`; a pinned
+version of an *external tool* that does the building belongs in
+`versions.env`.
+
+### Dependency ownership
+
+| Dep | Owner | CI behavior | Dev behavior |
+|---|---|---|---|
+| Rust targets + pinned nightly | `compile_rust.sh`, upstream `build.sh` | Auto-install (safe) | Auto-install (safe) |
+| binaryen (wasm-opt) | `compile_rust.sh --wasm-opt` | Hash-verified download → version-keyed cache | Same (fail-closed on hash mismatch) |
+| jq | `json_get` callers | Pre-installed on runners | Error with install hint |
+| build.json reads | `compile_rust.sh`, `analyze.sh`, hook | jq / jsonDecode | Same |
+
+---
+
+## 11. Where to look when X happens
 
 | Symptom | First place to look |
 |---|---|
@@ -447,6 +585,6 @@ When a divergence is discovered, document it here and add a unit test that fails
 
 ---
 
-## 11. The one-line summary
+## 12. The one-line summary
 
 > **Five layers, generator-driven dispatch, conditional-import facades, build hook + WASM tool. Every facade routes through dispatch — bundled, locale-restricted, lazy, composite all work without facade changes. IDL patches add what upstream doesn't expose; the generator absorbs the rest.**

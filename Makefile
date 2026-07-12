@@ -5,7 +5,7 @@
         test-example test-example-matrix test-example-macos test-example-device \
         test-rust test-example-android test-example-ios test-example-linux \
         test-example-windows test-example-web \
-        verify-android verify-ios verify-macos verify-linux \
+        verify verify-android verify-ios verify-macos verify-linux \
         verify-windows verify-web verify-readme-sizes \
         compile-macos compile-ios compile-android compile-linux \
         compile-windows compile-wasm compile-natives
@@ -242,6 +242,8 @@ test-example-web: build-wasm
 		-d chrome --browser-name=chrome --headless
 
 # ── Verify: release builds of the example ──
+verify: verify-android verify-ios verify-macos verify-linux verify-windows verify-web verify-web-lean
+
 verify-android:
 	@cd example && $(FLUTTER) build apk --release
 	@bash tool/check_alignment.sh example/build/app/outputs/flutter-apk/app-release.apk

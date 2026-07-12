@@ -193,6 +193,9 @@ Future<void> _buildWasm({
     '(this takes ~70 s clean)...',
   );
 
+  // runInShell on Windows: a bare CreateProcess PATH search finds
+  // System32's WSL bash.exe ("no installed distributions") before Git
+  // Bash; going through cmd resolves Git Bash, same as _locateWasmOpt.
   final result = await Process.start(
     'bash',
     ['ffi/capi/build.sh'],
@@ -207,6 +210,7 @@ Future<void> _buildWasm({
           '-Zwasm-c-abi=spec',
     },
     mode: ProcessStartMode.inheritStdio,
+    runInShell: Platform.isWindows,
   );
   final code = await result.exitCode;
   if (code != 0) {

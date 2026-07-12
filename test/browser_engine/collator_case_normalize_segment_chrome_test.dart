@@ -1,0 +1,97 @@
+// §3f collation / case mapping / normalization / segmentation on the browser
+// engine. Behaviour verified against Intl.Collator, String.toLocale*Case,
+// String.normalize, Intl.Segmenter. Engine-gap methods surface as
+// IcuUnsupportedError.
+@TestOn('chrome')
+library;
+
+import 'package:icu_kit/icu_kit.dart';
+import 'package:test/test.dart';
+
+void main() {
+  setUpAll(() async {
+    await IcuKit.init(webEngine: WebEngine.browserIntl);
+  });
+
+  group('IcuCollator (PARTIAL)', () {
+    test('tertiary orders a < b', () {
+      final c = IcuCollator(locale: 'en-US');
+      expect(c.compare('a', 'b'), lessThan(0));
+      expect(c.compare('b', 'a'), greaterThan(0));
+      expect(c.compare('a', 'a'), 0);
+    });
+    test('primary strength ignores case', () {
+      final c = IcuCollator(
+        locale: 'en-US',
+        strength: IcuCollatorStrength.primary,
+      );
+      expect(c.compare('A', 'a'), 0);
+    });
+    test('quaternary strength throws (no browser equivalent)', () {
+      expect(
+        () => IcuCollator(
+          locale: 'en-US',
+          strength: IcuCollatorStrength.quaternary,
+        ),
+        throwsA(isA<IcuUnsupportedError>()),
+      );
+    });
+  });
+
+  group('IcuCaseMapper', () {
+    test('lowercase / uppercase (ASCII)', () {
+      final m = IcuCaseMapper();
+      expect(m.lowercase('HELLO', locale: 'en-US'), 'hello');
+      expect(m.uppercase('hello', locale: 'en-US'), 'HELLO');
+    });
+    test('Turkish dotless-i via locale', () {
+      final m = IcuCaseMapper();
+      // tr: uppercasing 'i' yields dotted capital İ.
+      expect(m.uppercase('i', locale: 'tr'), 'İ');
+    });
+    test('fold throws (no browser case-folding)', () {
+      final m = IcuCaseMapper();
+      expect(() => m.fold('Hello'), throwsA(isA<IcuUnsupportedError>()));
+    });
+    test('foldTurkic throws', () {
+      final m = IcuCaseMapper();
+      expect(() => m.foldTurkic('Hello'), throwsA(isA<IcuUnsupportedError>()));
+    });
+  });
+
+  group('IcuNormalizer (FULL)', () {
+    test('NFC composes decomposed é', () {
+      final n = IcuNormalizer(IcuNormalizationForm.nfc);
+      const decomposed = 'é'; // e + combining acute
+      const composed = 'é'; // é
+      expect(n.normalize(decomposed), composed);
+      expect(n.isNormalized(composed), isTrue);
+      expect(n.isNormalized(decomposed), isFalse);
+    });
+    test('NFD decomposes precomposed é', () {
+      final n = IcuNormalizer(IcuNormalizationForm.nfd);
+      const decomposed = 'é';
+      const composed = 'é';
+      expect(n.normalize(composed), decomposed);
+      expect(n.isNormalized(decomposed), isTrue);
+    });
+  });
+
+  group('IcuSegmenter', () {
+    test('grapheme boundaries over a surrogate-pair cluster', () {
+      final seg = IcuSegmenter.grapheme();
+      // "a👍b": 'a'@0, '👍'@1 (UTF-16 len 2), 'b'@3, length 4.
+      final bounds = seg.boundaries('a\u{1F44D}b');
+      expect(bounds.first, 0);
+      expect(bounds.last, 'a\u{1F44D}b'.length);
+      expect(bounds, [0, 1, 3, 4]);
+    });
+    test('word boundaries split on the space', () {
+      final seg = IcuSegmenter.word();
+      final bounds = seg.boundaries('foo bar');
+      expect(bounds.first, 0);
+      expect(bounds.last, 'foo bar'.length);
+      expect(bounds, contains(3)); // end of 'foo'
+    });
+  });
+}

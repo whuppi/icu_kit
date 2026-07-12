@@ -25,6 +25,7 @@ final class IcuTimeZoneFormat {
     try {
       return IcuTimeZoneFormat._(_buildStandalone(locale, loc.ffi, style));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Time-zone formatter unavailable for $locale: $e',
         locale: locale,

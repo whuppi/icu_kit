@@ -37,6 +37,7 @@ final class IcuLocaleExpander {
             : dispatch.localeExpanderDefault(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'LocaleExpander unavailable: $e',
         marker: 'LocaleExpander',
@@ -73,6 +74,7 @@ final class IcuLocaleExpander {
     try {
       return icu.Locale.fromString(tag);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuLocaleParseError(tag, cause: e);
     }
   }

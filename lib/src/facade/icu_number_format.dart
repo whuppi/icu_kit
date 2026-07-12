@@ -50,6 +50,7 @@ final class IcuNumberFormat {
       );
       return IcuNumberFormat._(formatter);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Decimal formatter unavailable for $locale: $e',
         locale: locale,

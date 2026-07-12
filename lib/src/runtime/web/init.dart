@@ -3,6 +3,11 @@ import 'dart:js_interop';
 import 'package:logging/logging.dart';
 
 import 'flavor_probe.dart';
+import '../web_engine.dart';
+// DEFERRED: the browser-Intl shim is compiled into a separate chunk and
+// loaded ONLY when `init(webEngine: WebEngine.browserIntl)` runs, so
+// ICU4X-mode web bundles never ship it.
+import '../web_intl/install.dart' deferred as browser_intl;
 import '../../data/icu_data_resolver.dart';
 import '../../data/icu_data.dart';
 import '../../errors/icu_error.dart';
@@ -29,6 +34,13 @@ class IcuKit {
   static JSObject? _module;
   static IcuDataResolver? _resolver;
   static bool? _hasCompiledData;
+  static String? _engine;
+
+  /// Which web engine is active: `'icu4x'` (default) or `'browser-intl'`
+  /// (selected via `IcuKit.init(webEngine: WebEngine.browserIntl)`). On native
+  /// this getter returns `'native'` — the surface is symmetric across the
+  /// conditional import.
+  static String get engine => _engine ?? 'icu4x';
 
   /// Module URL relative to the page that loads the app. Defaults to
   /// `'icu_kit/lib/index.mjs'` which matches what `flutter pub run icu_kit:setup`
@@ -65,25 +77,50 @@ class IcuKit {
   ///   * [IcuData.lazy] — load per-locale postcards on demand.
   ///   * [IcuData.composite] — tiered fallback.
   ///
+  /// [webEngine] picks the web engine: [WebEngine.icu4x] (default, full ICU4X)
+  /// or [WebEngine.browserIntl] (the browser's built-in `Intl`, zero download —
+  /// see [WebEngine.browserIntl] for the coverage trade). The browser engine's
+  /// code is loaded lazily, only when selected.
+  ///
   /// Validation runs against the DETECTED wasm flavor
   /// ([hasCompiledData]) — same single-door contract as native.
   ///
   /// Throws [IcuLoadError] if the JS module fails to load.
   /// Throws [IcuMissingDataError] if the wasm is lean and no lazy data
   /// is configured.
-  static Future<void> init({IcuData data = const BundledIcuData()}) async {
-    if (_module == null) {
-      try {
-        _module = await importModule(moduleUrl.toJS).toDart;
-      } catch (e) {
-        throw IcuLoadError('web', e);
+  /// Throws [IcuUnsupportedError] if [WebEngine.browserIntl] is paired with a
+  /// per-locale [IcuData] (lazy / composite) — the browser owns the CLDR.
+  static Future<void> init({
+    IcuData data = const BundledIcuData(),
+    WebEngine webEngine = WebEngine.icu4x,
+  }) async {
+    if (webEngine == WebEngine.browserIntl) {
+      if (data is! BundledIcuData) {
+        throw IcuUnsupportedError(
+          'IcuData.lazy / IcuData.composite (per-locale data sources)',
+          engine: 'browser-intl',
+        );
       }
+      if (_module == null) {
+        await browser_intl.loadLibrary();
+        _module = browser_intl.buildBrowserIntlModule();
+        _hasCompiledData = true; // the browser owns the CLDR; always present
+        _engine = 'browser-intl';
+      }
+    } else {
+      if (_module == null) {
+        try {
+          _module = await importModule(moduleUrl.toJS).toDart;
+        } catch (e) {
+          throw IcuLoadError('web', e);
+        }
+      }
+      // Probe the sibling diplomat-wasm.mjs (already import-cached by the
+      // classes in index.mjs) for the binary flavor.
+      _hasCompiledData ??= await wasmHasCompiledData(
+        moduleUrl.replaceFirst(RegExp(r'index\.mjs$'), 'diplomat-wasm.mjs'),
+      );
     }
-    // Probe the sibling diplomat-wasm.mjs (already import-cached by the
-    // classes in index.mjs) for the binary flavor.
-    _hasCompiledData ??= await wasmHasCompiledData(
-      moduleUrl.replaceFirst(RegExp(r'index\.mjs$'), 'diplomat-wasm.mjs'),
-    );
     final r = _resolver;
     if (r == null) {
       _resolver = IcuDataResolver(

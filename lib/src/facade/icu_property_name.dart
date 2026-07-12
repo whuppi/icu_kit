@@ -32,6 +32,7 @@ final class IcuPropertyName {
     try {
       return IcuPropertyName._(build(), kind);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Property name resolver unavailable for ${kind.name}: $e',
         marker: 'PropertyValueNameToEnumMapper.${kind.name}',

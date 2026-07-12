@@ -33,6 +33,7 @@ final class IcuLocaleDirectionality {
             : dispatch.localeDirectionalityDefault(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'LocaleDirectionality unavailable: $e',
         marker: 'LocaleDirectionality',

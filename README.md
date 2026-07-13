@@ -172,11 +172,11 @@ Browser Intl mode covers the ECMA-402 core; what the browser can't do raises `Ic
 | Locale (parse / canonicalize / maximize / RTL) | FULL | FULL | fallback chain is PARTIAL (single-step, no CLDR parent walk) |
 | Plural rules | FULL | PARTIAL | number-parsed operands lose explicit trailing zeros (`1.0`) |
 | Decimal numbers | FULL | FULL | string path preserves precision beyond `double` |
-| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100) |
+| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100); units outside the ECMA-402 set (e.g. `furlong`) THROW |
 | Date / Time / Date+Time | FULL | PARTIAL | `alignment` (column padding) has no `Intl` control; `-u-ca-` / `-u-nu-` / `-u-hc-` extensions work |
 | Zoned + standalone time zone | FULL | PARTIAL | `location` / `exemplarCity` styles THROW |
 | Lists | FULL | FULL | |
-| Collation | FULL | PARTIAL | `quaternary` / `identical` strength THROW |
+| Collation | FULL | PARTIAL | `quaternary` / `identical` strength, `caseLevel`, and non-punctuation `maxVariable` (under shifted) THROW — no `Intl.Collator` control |
 | Segmentation (grapheme / word / sentence) | FULL | FULL | `line` segmentation THROWs (`Intl.Segmenter` has no line mode) |
 | Casing (lower / upper) | FULL | PARTIAL | `fold` / `foldTurkic` / `titlecase` THROW (no browser API) |
 | Normalization (NFC/NFD/NFKC/NFKD) | FULL | FULL | |

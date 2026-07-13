@@ -1,0 +1,15 @@
+# Scoped override for the generated runtime tree.
+#
+# All Diplomat-generated bindings (native/bindings/*.g.dart) and the native/web
+# dispatch twins (*.g.dart) live under this directory. pub.dev's pana scorer
+# lints every SHIPPED .dart file and ignores the root analyzer.exclude, so
+# these three hand-written-code lints would fire on un-fixable generated output
+# and cost points on "Pass static analysis". They stay ON at the repo root for
+# all hand-written code; this nested file turns them off for the generated tree.
+include: ../../../analysis_options.yaml
+
+linter:
+  rules:
+    sort_constructors_first: false
+    public_member_api_docs: false
+    comment_references: false

@@ -61,6 +61,7 @@ export 'src/facade/icu_locale_fallbacker.dart';
 
 // ── Formatters — numbers, dates, lists, relative time ─────────────────
 export 'src/facade/icu_number_format.dart';
+export 'src/facade/icu_number_parts.dart' show IcuNumberPart, IcuNumberPartType;
 export 'src/facade/icu_currency_format.dart';
 export 'src/facade/icu_percent_format.dart';
 export 'src/facade/icu_unit_format.dart';

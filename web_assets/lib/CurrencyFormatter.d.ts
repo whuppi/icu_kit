@@ -3,6 +3,7 @@ import type { CurrencyWidth } from "./CurrencyWidth"
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
 
@@ -43,4 +44,12 @@ export class CurrencyFormatter {
      * See the [Rust documentation for `format_fixed_decimal`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/formatter/struct.CurrencyFormatter.html#method.format_fixed_decimal) for more information.
      */
     format(value: Decimal, currencyCode: string): string;
+
+    /**
+     * Format `value` with `currency_code` into typed parts (ECMA-402
+     * `formatToParts` shape): the symbol as a `currency` part, the number
+     * as integer / group / decimal / fraction. Returns an EMPTY part list
+     * for an invalid currency code (same as `format`'s empty output).
+     */
+    formatToParts(value: Decimal, currencyCode: string): FormattedNumberParts;
 }

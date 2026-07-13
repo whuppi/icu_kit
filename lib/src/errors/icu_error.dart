@@ -14,9 +14,16 @@ sealed class IcuError implements Exception {
 
 /// The locale string failed to parse as a BCP-47 identifier.
 final class IcuLocaleParseError extends IcuError {
-  /// Create the error for the unparseable [input].
-  const IcuLocaleParseError(this.input)
-    : super('Invalid BCP-47 locale: "$input"');
+  /// Create the error for the unparseable [input]. [cause] is the underlying
+  /// binding error — kept in the message so an unexpected failure (a missing
+  /// symbol, an FFI fault) is diagnosable instead of masquerading as a plain
+  /// bad tag.
+  IcuLocaleParseError(this.input, {Object? cause})
+    : super(
+        cause == null
+            ? 'Invalid BCP-47 locale: "$input"'
+            : 'Invalid BCP-47 locale: "$input" (cause: $cause)',
+      );
 
   /// The string that failed to parse.
   final String input;
@@ -85,6 +92,39 @@ final class IcuLoadError extends IcuError {
 
   /// The underlying platform-side cause, if any.
   final Object? cause;
+}
+
+/// The requested capability is not available on the active engine.
+///
+/// icu_kit runs on two web engines: the default ICU4X engine (full ICU4X,
+/// identical output everywhere) and the opt-in browser Intl engine
+/// (`IcuKit.init(webEngine: WebEngine.browserIntl)`, zero download, backed by the
+/// browser's built-in `Intl`). The browser Intl engine covers the ECMA-402
+/// core but not the surface `Intl` doesn't expose — bidi, IDNA, Unicode
+/// properties, exemplar characters, line segmentation, titlecasing, case
+/// folding. Those throw this on the browser Intl engine. Switch to the ICU4X
+/// engine (the default) for the full surface.
+///
+/// Facade catch blocks RETHROW this instead of rewrapping it (the
+/// `if (e is IcuUnsupportedError) rethrow;` lines) — an engine-capability
+/// gap must never masquerade as an [IcuDataError], whose remedy (slicing
+/// data) cannot fix it. Do not remove those rethrows; on the ICU4X and
+/// native engines they are dead code by construction (nothing there throws
+/// this type).
+final class IcuUnsupportedError extends IcuError {
+  /// Create the error: [capability] is what was unavailable, [engine] is the
+  /// engine that lacks it (`'browser-intl'` / `'native'`).
+  IcuUnsupportedError(this.capability, {required this.engine})
+    : super(
+        '$capability is not available on the "$engine" engine. '
+        'See the README engine matrix; the ICU4X engine supports it.',
+      );
+
+  /// What was requested (e.g. `'IcuBidi'`, `'IcuIdna'`).
+  final String capability;
+
+  /// The engine that lacks the capability (`'browser-intl'` / `'native'`).
+  final String engine;
 }
 
 /// IDNA processing rejected a domain name.

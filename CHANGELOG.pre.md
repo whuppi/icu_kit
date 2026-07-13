@@ -55,6 +55,15 @@ CONTENT RULES (never change)
     (or commit) link alone otherwise.
   • No capability inventories — "what's shipped" lives in README +
     docs/CAPABILITY_ROADMAP.md; the changelog says only what CHANGED.
+  • Engine/submodule bump → web re-fetch action (NEVER miss this). When a
+    release bumps the vendored engine submodule (vendor/icu4x), the web
+    WASM is rebuilt and consumers must re-fetch it, so ALWAYS add the
+    action bullet:
+      - Engine updated — web: re-run `flutter pub run icu_kit:setup --force web` (native updates itself)
+    Native self-updates via the build hook; only web needs the manual step.
+    When cutting a release, diff the submodule pointer against the previous
+    tag (`git ls-tree <prev-tag> vendor/icu4x`) so an engine bump never
+    ships without the bullet.
 
 VERSION SCHEME (icu_kit)
   The public line is 0.x STABLE releases (0.1.0, 0.2.0, …) — usable and
@@ -74,23 +83,9 @@ VERSION SCHEME (icu_kit)
 
 ## 0.1.0-dev.0
 
-First prerelease — full ECMA-402 / Unicode internationalization for Dart
-and Flutter, on all six platforms, powered by a compiled-in ICU4X engine.
+First prerelease — full ECMA-402 / Unicode internationalization for Dart and Flutter on all six platforms.
 
-- **API:** one Dart API over number, currency, percent, and unit
-  formatting, plural rules, dates and times across 17 calendar systems,
-  time zones, relative time, list formatting, collation, display names,
-  segmentation, case mapping, normalization, bidi, Unicode properties,
-  exemplar characters, and IDNA — no Flutter dependency anywhere.
-- **Platforms:** native via dart:ffi (the build hook compiles icu_capi
-  from the vendored ICU4X source); web via dart:js_interop + a
-  WebAssembly build (19 MB bundled, or a 2.1 MB lean variant — 0.6 MB
-  gzipped — installed with `dart run icu_kit:setup --lean`).
-- **Data:** CLDR ships bundled by default, or lazily per-locale with
-  `bundleCldrData: false` + `IcuData.lazy` for a lean binary; `slice` cuts
-  per-locale postcards by facade-family marker preset (`format-core`
-  through `kit`, 68 KB to 5.6 MB per locale). The binary flavor is DETECTED
-  at runtime, not declared, so `IcuData.composite([bundled, lazy])` runs
-  unchanged on both — see `example_lean/`.
-- **Vendoring:** ICU4X 2.2.0 as a fork submodule carrying icu_kit's
-  marker-wrapped patches on a named branch.
+- **API:** one Dart API for number, currency, percent, and unit formatting (as strings or typed `formatToParts` parts); plural rules; dates and times across 17 calendars; time zones; relative time; lists; collation; display names; segmentation; case mapping; normalization; bidi; Unicode properties; exemplar characters; and IDNA. No Flutter dependency.
+- **Engines:** native via dart:ffi (the build hook compiles icu_capi from the vendored ICU4X source); web via a bundled WebAssembly build of that engine (19 MB, or a 2.1 MB lean variant, 0.6 MB gzipped, via `dart run icu_kit:setup --lean`); or the browser's built-in `Intl` with no ICU4X download (`IcuKit.init(webEngine: WebEngine.browserIntl)`).
+- **Data:** CLDR ships bundled, or loads lazily per-locale (`bundleCldrData: false` + `IcuData.lazy`) for a lean binary. `slice` cuts per-locale data by facade family (68 KB to 5.6 MB). One binary serves bundled and lazy data without a flag — see `example_lean/`.
+- **Vendoring:** ICU4X 2.2.0 as a fork submodule carrying icu_kit's patches on a named branch.

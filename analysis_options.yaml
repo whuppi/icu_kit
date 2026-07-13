@@ -7,11 +7,18 @@ analyzer:
     strict-raw-types: true
   exclude:
     - 'vendor/**'      # Vendored ICU4X submodule
-    - '**/*.g.dart'    # Generated: Diplomat bindings + dispatch twins
+    # Generated *.g.dart bindings are deliberately NOT excluded here. pub.dev's
+    # pana scorer IGNORES analyzer.exclude and lints every shipped .dart file,
+    # so an exclude would only blind local `dart analyze` to the exact lints
+    # pana scores — the gap that once cost 10 points silently. Instead the
+    # generated tree carries lib/src/runtime/analysis_options.yaml, which pana
+    # DOES respect (nested options are resolved per-file), turning off the lints
+    # that Diplomat output can't satisfy. Net: local analyze == pana, and a
+    # future regen that trips a new lint is caught locally, not at publish.
 
 linter:
   rules:
-    # Requires Dart 3.12+ syntax but SDK constraint is >=3.10.0.
+    # Requires Dart 3.12+ syntax but SDK constraint is >=3.11.0.
     # Enable when minimum SDK is bumped to 3.12.
     use_null_aware_elements: false
 
@@ -32,6 +39,10 @@ linter:
     # ── API quality ────────────────────────────────────────────────────
     comment_references: true
     prefer_final_locals: true
+    # ON for hand-written code; the generated tree turns it (and
+    # public_member_api_docs + comment_references) off via its nested
+    # lib/src/runtime/analysis_options.yaml, because Diplomat output emits
+    # fields before constructors and is regenerated, never hand-sorted.
     sort_constructors_first: true
     use_string_buffers: true
     avoid_unused_constructor_parameters: true

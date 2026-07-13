@@ -4,7 +4,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import '../init.dart';
-import 'number_format.dart' show Decimal;
+import 'number_format.dart' show Decimal, FormattedNumberParts;
 
 /// Web mirror of the FFI `CurrencyFormatter` (symbol form).
 extension type CurrencyFormatter._(JSObject _self) implements JSObject {
@@ -16,6 +16,16 @@ extension type CurrencyFormatter._(JSObject _self) implements JSObject {
   String format(Decimal value, String currencyCode) => _self
       .callMethod<JSString>('format'.toJS, value, currencyCode.toJS)
       .toDart;
+
+  /// Format [value] with [currencyCode] into typed parts.
+  FormattedNumberParts formatToParts(Decimal value, String currencyCode) =>
+      FormattedNumberParts.fromDispatch(
+        _self.callMethod<JSObject>(
+          'formatToParts'.toJS,
+          value,
+          currencyCode.toJS,
+        ),
+      );
 }
 
 /// Web mirror of the FFI `LongCurrencyFormatter` (long form).
@@ -28,6 +38,12 @@ extension type LongCurrencyFormatter._(JSObject _self) implements JSObject {
   /// dollars" in en-US).
   String format(Decimal value) =>
       _self.callMethod<JSString>('format'.toJS, value).toDart;
+
+  /// Format [value] into typed parts.
+  FormattedNumberParts formatToParts(Decimal value) =>
+      FormattedNumberParts.fromDispatch(
+        _self.callMethod<JSObject>('formatToParts'.toJS, value),
+      );
 }
 
 /// Web mirror of the FFI `CurrencyWidth` enum.

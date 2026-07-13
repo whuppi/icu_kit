@@ -20,10 +20,11 @@
 // and dispatch never calls the missing functions. --lean therefore skips
 // the bindings regen entirely.
 //
-// wasm-opt resolution:
-//   1. Flutter SDK's bundled binary (preferred — Flutter ships it)
-//   2. wasm-opt on $PATH (for pure-Dart installs without Flutter)
-// Failing to locate either fails the build with an install hint.
+// wasm-opt resolution: the PINNED binaryen release only — installed by
+// compile_rust.sh --wasm-opt into a version-keyed cache, hash-verified via
+// tool/fetch_verified.sh against the pins in tool/versions.env. No
+// Flutter-SDK copy, no $PATH fallback: every build optimizes with the
+// same verified binary, so the wasm output is reproducible.
 //
 // The setup script (tool/setup.dart) copies web_assets/* into a consumer
 // app's web/icu_kit/ folder so flutter run -d chrome serves them as static
@@ -40,11 +41,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-const _icu4xTag = 'icu@2.2.0';
+/// Feature lists and the base tag come from build.json — the single source
+/// of truth the compile script and analysis gate also read. Do not add a
+/// features or tag const here; that drifts on the next submodule bump.
+String _baseTagFromBuildJson() =>
+    (jsonDecode(File('build.json').readAsStringSync())
+            as Map<String, dynamic>)['baseTag']
+        as String;
 
-/// Feature lists come from build.json (`features.wasm` / `features.wasmLean`)
-/// — the single source of truth the compile script and analysis gate also
-/// read. Do not add a features const here; that drifts.
 String _featuresFromBuildJson(Directory pkgRoot, {required bool lean}) {
   final json =
       jsonDecode(File('${pkgRoot.path}/build.json').readAsStringSync())
@@ -68,10 +72,9 @@ void main(List<String> args) async {
   final wasmPath =
       '${webAssets.path}/${lean ? 'icu4x-lean.wasm' : 'icu4x.wasm'}';
 
-  // 1. Locate wasm-opt — prefer Flutter SDK's bundled copy, fall back to PATH.
-  //    Verifying BEFORE the multi-minute wasm build means no wasted compute
-  //    if binaryen is missing.
-  final wasmOpt = await _locateWasmOpt();
+  // 1. Materialize the pinned wasm-opt. Doing this BEFORE the multi-minute
+  //    wasm build means no wasted compute if the download fails.
+  final wasmOpt = await _locateWasmOpt(pkgRoot.path);
 
   // 2. Build the wasm via upstream's build.sh.
   await _buildWasm(
@@ -93,90 +96,40 @@ void main(List<String> args) async {
   print('Next: dart run icu_kit:setup (from a consuming app) to install.');
 }
 
-/// Resolves the path to `wasm-opt`. Returns the absolute path the rest of the
-/// flow should invoke.
+/// Resolves the path to `wasm-opt` — the pinned binaryen release, nothing
+/// else.
 ///
-/// **Resolution order (matches dart2wasm's own bundled-first pattern):**
-///   1. Flutter SDK bundle: `$FLUTTER_ROOT/bin/cache/dart-sdk/bin/utils/wasm-opt`
-///      Discovered via `flutter --version --machine` → `flutterRoot`.
-///      Flutter ships `wasm-opt` (binaryen) inside its SDK so `dart compile
-///      wasm` works out of the box; we reuse the same binary so icu_kit
-///      consumers don't need to install binaryen separately.
-///   2. System PATH: a manually-installed `wasm-opt` (binaryen). Useful for
-///      pure-Dart toolchain installs that don't have Flutter, or when the
-///      developer wants a newer binaryen than Flutter ships.
-///
-/// Fails loud with an actionable install hint if neither resolves.
-Future<String> _locateWasmOpt() async {
-  // Try Flutter SDK first.
-  try {
-    final result = await Process.run('flutter', [
-      '--version',
-      '--machine',
-    ], runInShell: Platform.isWindows);
-    if (result.exitCode == 0) {
-      // The output is JSON; extract `flutterRoot` without pulling in
-      // dart:convert just to parse one field — this script otherwise has
-      // zero deps. A regex match is fine for a well-known shape.
-      final stdout = result.stdout.toString();
-      final match = RegExp(r'"flutterRoot"\s*:\s*"([^"]+)"').firstMatch(stdout);
-      if (match != null) {
-        final flutterRoot = match.group(1)!;
-        final ext = Platform.isWindows ? '.exe' : '';
-        final candidate =
-            '$flutterRoot/bin/cache/dart-sdk/bin/utils/wasm-opt$ext';
-        if (File(candidate).existsSync()) {
-          final v = await Process.run(candidate, ['--version']);
-          if (v.exitCode == 0) {
-            final version = v.stdout.toString().trim().split('\n').first;
-            print('Found $version (Flutter SDK)');
-            return candidate;
-          }
-        }
-      }
-    }
-  } on ProcessException {
-    // Flutter not on PATH — fine, fall through to the next strategy.
+/// Delegates to `tool/compile_rust.sh --wasm-opt`: hash-verified download
+/// into a cache keyed by `BINARYEN_VERSION` (so a pin bump structurally
+/// invalidates the old binary), then prints the path. Fails loud if the
+/// download or verification fails — there is deliberately no Flutter-SDK
+/// or $PATH fallback, which would float the wasm-opt version with the
+/// environment.
+Future<String> _locateWasmOpt(String pkgRoot) async {
+  final result = await Process.run('bash', [
+    '$pkgRoot/tool/compile_rust.sh',
+    '--wasm-opt',
+  ], runInShell: Platform.isWindows);
+  if (result.exitCode != 0) {
+    stderr.write(result.stderr);
+    stderr.writeln('');
+    stderr.writeln('  Could not install the pinned wasm-opt (binaryen).');
+    stderr.writeln('  The pin lives in tool/versions.env (BINARYEN_*);');
+    stderr.writeln(
+      '  the download is hash-verified by tool/fetch_verified.sh.',
+    );
+    stderr.writeln('  Check network access and re-run:');
+    stderr.writeln('    fvm dart run tool/build_wasm.dart');
+    exit(1);
   }
-
-  // Fall back to PATH.
-  try {
-    final result = await Process.run('wasm-opt', ['--version']);
-    if (result.exitCode == 0) {
-      final version = result.stdout.toString().trim().split('\n').first;
-      print('Found $version (PATH)');
-      return 'wasm-opt';
-    }
-  } on ProcessException {
-    // Not on PATH either — fall through.
+  final path = result.stdout.toString().trim().split('\n').last;
+  final v = await Process.run(path, ['--version']);
+  if (v.exitCode != 0) {
+    stderr.writeln('  Pinned wasm-opt at $path failed --version.');
+    exit(1);
   }
-
-  // Neither — fail loud.
-  stderr.writeln('');
-  stderr.writeln('  wasm-opt (binaryen) is required but was not found.');
-  stderr.writeln('');
-  stderr.writeln('  Tried:');
-  stderr.writeln(
-    '    1. Flutter SDK (\$FLUTTER_ROOT/bin/cache/dart-sdk/bin/utils/wasm-opt)',
-  );
-  stderr.writeln('    2. \$PATH');
-  stderr.writeln('');
-  stderr.writeln(
-    '  If you have Flutter installed: ensure `flutter` is on PATH so',
-  );
-  stderr.writeln('  this script can locate the bundled wasm-opt.');
-  stderr.writeln('');
-  stderr.writeln('  If you DO NOT have Flutter, install binaryen manually:');
-  stderr.writeln('    macOS:    brew install binaryen');
-  stderr.writeln('    Linux:    apt install binaryen   # or build from source');
-  stderr.writeln('    Windows:  scoop install binaryen # or download release');
-  stderr.writeln(
-    '  Source:     https://github.com/WebAssembly/binaryen/releases',
-  );
-  stderr.writeln('');
-  stderr.writeln('  After install, re-run:  fvm dart run tool/build_wasm.dart');
-  stderr.writeln('');
-  exit(1);
+  print('Found ${v.stdout.toString().trim().split('\n').first} (pinned)');
+  return path;
 }
 
 /// Runs wasm-opt -Os on the just-built wasm. Replaces the file in place.
@@ -235,8 +188,14 @@ Future<void> _buildWasm({
   required String features,
 }) async {
   final name = outWasm.split('/').last;
-  print('Building $name from $_icu4xTag (this takes ~70 s clean)...');
+  print(
+    'Building $name from ${_baseTagFromBuildJson()} '
+    '(this takes ~70 s clean)...',
+  );
 
+  // runInShell on Windows: a bare CreateProcess PATH search finds
+  // System32's WSL bash.exe ("no installed distributions") before Git
+  // Bash; going through cmd resolves Git Bash, same as _locateWasmOpt.
   final result = await Process.start(
     'bash',
     ['ffi/capi/build.sh'],
@@ -251,6 +210,7 @@ Future<void> _buildWasm({
           '-Zwasm-c-abi=spec',
     },
     mode: ProcessStartMode.inheritStdio,
+    runInShell: Platform.isWindows,
   );
   final code = await result.exitCode;
   if (code != 0) {

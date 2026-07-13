@@ -1,17 +1,18 @@
 name: icu_kit
 version: 0.0.0
 description: >-
-  ICU4X bindings for ECMA-402 internationalization — numbers, dates,
-  plurals, lists, collation, segmentation. Native FFI + WebAssembly.
+  Internationalization for Flutter and Dart on Unicode's ICU4X. Numbers,
+  dates, plurals, lists, collation, segmentation, bidi, IDNA — same
+  output on every platform, including web.
 homepage: https://github.com/whuppi/icu_kit
 repository: https://github.com/whuppi/icu_kit
 issue_tracker: https://github.com/whuppi/icu_kit/issues
 
 topics:
   - i18n
-  - internationalization
   - icu
   - localization
+  - intl
   - unicode
 
 # `dart run icu_kit:setup` — the consumer-facing web asset installer.
@@ -28,7 +29,7 @@ hooks:
   # Optional: bundleCldrData (default: true)
   #
   # Set to `false` in your app's pubspec.yaml to ship a lean binary that
-  # excludes the ~16 MB CLDR statics. Apps then must call
+  # excludes the ~19 MB CLDR statics. Apps then must call
   # `IcuKit.init(data: IcuData.lazy(...))` to load per-locale postcards
   # at runtime. See the README's "Bundle size" section.
   #

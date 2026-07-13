@@ -2,6 +2,7 @@
 import { DataError } from "./DataError.mjs"
 import { DataProvider } from "./DataProvider.mjs"
 import { Decimal } from "./Decimal.mjs"
+import { FormattedNumberParts } from "./FormattedNumberParts.mjs"
 import { Locale } from "./Locale.mjs"
 import wasm from "./diplomat-wasm.mjs";
 import * as diplomatRuntime from "./diplomat-runtime.mjs";
@@ -121,6 +122,24 @@ export class LongCurrencyFormatter {
         finally {
             diplomatRuntime.FUNCTION_PARAM_ALLOC.clean();
             write.free();
+        }
+    }
+
+    /**
+     * Format `value` into typed parts (ECMA-402 `formatToParts` shape):
+     * the long currency name as a single `currency` part, the number as
+     * integer / group / decimal / fraction.
+     */
+    formatToParts(value) {
+
+        const result = wasm.icu4x_LongCurrencyFormatter_format_to_parts_mv1(this.ffiValue, value.ffiValue);
+
+        try {
+            return new FormattedNumberParts(diplomatRuntime.internalConstructor, result, []);
+        }
+
+        finally {
+            diplomatRuntime.FUNCTION_PARAM_ALLOC.clean();
         }
     }
 

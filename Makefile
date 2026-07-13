@@ -1,11 +1,11 @@
 .PHONY: check hooks analyze analyze-floor platforms lint-shell format \
-        test test-lean test-web test-web-lean test-guards \
+        test test-lean test-web test-web-lean test-guards test-browser-engine \
         postcards-example-lean test-example-lean-matrix verify-web-lean \
         build-wasm build-wasm-lean regen-bindings clean \
         test-example test-example-matrix test-example-macos test-example-device \
-        test-example-android test-example-ios test-example-linux \
+        test-rust test-example-android test-example-ios test-example-linux \
         test-example-windows test-example-web \
-        verify-android verify-ios verify-macos verify-linux \
+        verify verify-android verify-ios verify-macos verify-linux \
         verify-windows verify-web verify-readme-sizes \
         compile-macos compile-ios compile-android compile-linux \
         compile-windows compile-wasm compile-natives
@@ -22,6 +22,13 @@ DART    ?= fvm dart
 FLUTTER ?= fvm flutter
 CARGO   ?= cargo
 TEST_RESULTS_DIR ?= test-results
+
+# GTK check — CI auto-installs, dev gets error with instructions.
+define ensure_gtk
+	@command -v pkg-config >/dev/null && pkg-config --exists gtk+-3.0 || { \
+		if [ -n "$$CI" ]; then sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build libgtk-3-dev; \
+		else echo "Error: libgtk-3-dev not found. Run: sudo apt-get install -y ninja-build libgtk-3-dev"; exit 1; fi; }
+endef
 TIMEOUT := $(if $(CI),--timeout=30x,)
 VERBOSE := $(if $(CI),--verbose,)
 
@@ -32,7 +39,7 @@ VERBOSE := $(if $(CI),--verbose,)
 # make check    Full local gate before PR.
 
 check: lint-shell analyze analyze-floor platforms test-guards test test-lean \
-       test-web test-web-lean test-example-matrix
+       test-web test-web-lean test-browser-engine test-example-matrix
 
 # make hooks    Activate the repo's git hooks (commit-msg, pre-commit).
 #               Run once after cloning — they stay dormant otherwise.
@@ -105,6 +112,18 @@ test:
 	@mkdir -p $(TEST_RESULTS_DIR)
 	@$(DART) test $(TIMEOUT) --file-reporter json:$(TEST_RESULTS_DIR)/vm.json
 
+# make test-rust  Cargo tests for the patched vendored crate — icu_capi is
+#                 where every fork patch lives, so this is the rebase-safety
+#                 harness: upstream's own tests riding the fork prove a patch
+#                 (or a rebase of one) didn't break neighboring behavior.
+#                 Same feature set + no-default-features as the hook's build.
+
+test-rust:
+	@echo "=== Rust: icu_capi (vendored fork, native features) ==="
+	cargo test --manifest-path vendor/icu4x/ffi/capi/Cargo.toml \
+	  --no-default-features \
+	  --features "$$(bash tool/compile_rust.sh --features native)"
+
 # make test-lean  The LEAN binary end to end: test_fixtures/lean_smoke/ is its own
 #                 hooks root whose pubspec flips bundleCldrData off, so the
 #                 hook builds icu_capi WITHOUT compiled data — proving the
@@ -115,7 +134,11 @@ test:
 test-lean:
 	@echo "=== Lean-binary suite (hook builds the no-CLDR flavor) ==="
 	@mkdir -p $(TEST_RESULTS_DIR)
-	@cd test_fixtures/lean_smoke && $(DART) test $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/lean.json
+	@# Explicit pub get first: when `dart test` resolves deps implicitly
+	@# (fresh checkout, no .dart_tool), the build hook runs but its native
+	@# asset never reaches the test runtime — every FFI call then dies with
+	@# "No available native assets". Deterministic; keep the two-step.
+	@cd test_fixtures/lean_smoke && $(DART) pub get && $(DART) test $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/lean.json
 
 # make test-guards  Mechanical suite rules. Every suite here runs on BOTH
 #                   the VM and Chrome, so a VM-only import in a shared suite
@@ -134,10 +157,11 @@ test-guards:
 	  echo "the IO behind the conditional-import loader):"; \
 	  printf "$$bad"; exit 1; fi
 	@bad=$$(grep -rlnE "import '(package:web/|dart:js_interop)" test/ --include="*.dart" \
-	  | grep -v "^test/_corpus/corpus_loader_web.dart" || true); \
+	  | grep -vE "^test/(_corpus/corpus_loader_web|browser_engine/module_probe_web)\.dart$$" \
+	  || true); \
 	if [ -n "$$bad" ]; then \
-	  echo "browser-only import outside the web corpus loader — every other"; \
-	  echo "suite must compile on the VM:"; \
+	  echo "browser-only import outside a conditional-loader web half — every"; \
+	  echo "other suite must compile on the VM:"; \
 	  echo "$$bad"; exit 1; fi
 	@echo "✓ test guards clean"
 
@@ -169,6 +193,21 @@ test-web-lean: build-wasm-lean
 	@cp test/_corpus/postcards/en_minimal.postcard test_fixtures/lean_smoke/web_mirror/
 	@mkdir -p $(TEST_RESULTS_DIR)
 	@cd test_fixtures/lean_smoke && $(DART) test -p chrome $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/web-lean.json
+
+# make test-browser-engine  The browser Intl engine end to end in real
+#                           Chrome — no ICU4X wasm blob, the app's classes
+#                           served off globalThis.Intl (ECMA-402). Runs the VM
+#                           drift guard (the shim's completeness radar) AND the
+#                           per-family behavior suites under BOTH web compilers:
+#                           dart2js AND dart2wasm. The shim is pure js_interop,
+#                           which can compile clean yet diverge at RUNTIME
+#                           between the two compilers (e.g. how a Symbol property
+#                           key marshals), so the suite runs on each. A build-
+#                           only wasm check would miss that class of bug.
+test-browser-engine:
+	@echo "=== Browser Intl engine suite (VM guard + Chrome dart2js + dart2wasm) ==="
+	@mkdir -p $(TEST_RESULTS_DIR)
+	@$(DART) test -p vm -p chrome -c chrome:dart2js -c chrome:dart2wasm $(TIMEOUT) test/browser_engine/ --file-reporter json:$(TEST_RESULTS_DIR)/browser-engine.json
 
 # ═══════════════════════════════════════════════════════════════════
 # § 3b — Example app (journeys + integration smoke + release verify)
@@ -213,6 +252,7 @@ test-example-ios:
 	@cd example && $(FLUTTER) test $(VERBOSE) $(TIMEOUT) integration_test/icu_kit_smoke_test.dart --file-reporter json:../$(TEST_RESULTS_DIR)/int-ios.json
 
 test-example-linux:
+	$(call ensure_gtk)
 	@mkdir -p $(TEST_RESULTS_DIR)
 	@cd example && $(FLUTTER) test $(VERBOSE) $(TIMEOUT) integration_test/icu_kit_smoke_test.dart -d linux --file-reporter json:../$(TEST_RESULTS_DIR)/int-linux.json
 
@@ -224,14 +264,14 @@ test-example-windows:
 # consumer setup executable; build-wasm produces the artifact first.
 test-example-web: build-wasm
 	@cd example && $(FLUTTER) pub get && $(FLUTTER) pub run icu_kit:setup --force web
-	@cd example && $(FLUTTER) drive \
-		--driver=test_driver/integration_test.dart \
-		--target=integration_test/icu_kit_smoke_test.dart \
-		-d chrome --browser-name=chrome --headless
+	@./tool/run_web_test.sh $(FLUTTER)
 
 # ── Verify: release builds of the example ──
+verify: verify-android verify-ios verify-macos verify-linux verify-windows verify-web verify-web-lean
+
 verify-android:
 	@cd example && $(FLUTTER) build apk --release
+	@bash tool/check_alignment.sh example/build/app/outputs/flutter-apk/app-release.apk
 
 verify-ios:
 	@cd example && $(FLUTTER) build ios --release --no-codesign
@@ -240,6 +280,7 @@ verify-macos:
 	@cd example && $(FLUTTER) build macos --release
 
 verify-linux:
+	$(call ensure_gtk)
 	@cd example && $(FLUTTER) build linux --release
 
 verify-windows:
@@ -275,7 +316,10 @@ LEAN_EXAMPLE_LOCALES := und,en,en-US,de,fr,hi,ja,ar,th,sv,tr,zh-Hant
 
 postcards-example-lean:
 	@echo "=== Slicing postcards for example_lean (markers=kit) ==="
-	@cd example_lean && $(DART) run icu_kit:slice \
+	@# example_lean is a Flutter app (integration_test etc.), so resolve + run
+	@# the slice tool through Flutter — bare `dart run` can't see the Flutter SDK
+	@# deps and fails pub resolution. Matches every other example_lean target.
+	@cd example_lean && $(FLUTTER) pub get && $(FLUTTER) pub run icu_kit:slice \
 		--locales=$(LEAN_EXAMPLE_LOCALES) --markers=kit --per-locale --out=assets/icu
 
 test-example-lean-matrix: postcards-example-lean
@@ -335,7 +379,7 @@ compile-windows:
 	bash tool/compile_rust.sh windows
 
 compile-wasm:
-	bash tool/compile_rust.sh wasm
+	DART="$(DART)" bash tool/compile_rust.sh wasm
 
 compile-natives:
 	bash tool/compile_rust.sh native

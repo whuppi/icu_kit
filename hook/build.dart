@@ -45,14 +45,16 @@
 //
 //   pub.dev consumer (icu_kit: ^X.Y.Z):
 //     Native: automatic via build hook. Downloads the prebuilt binary.
-//             The vendored ICU4X source is too large for the pub
-//             archive (unlike pdf_manipulator), so there is no
-//             source fallback — download is THE path.
+//             The vendored ICU4X source ships in the pub archive (same
+//             model as pdf_manipulator), so compile-from-vendor is the
+//             fallback when the download is unavailable (needs the
+//             Rust toolchain).
 //     Web:    manual `flutter pub run icu_kit:setup`.
 //             Downloads the WASM; the JS bindings ship in the package.
 //
 //   Git tag consumer (ref: vX.Y.Z):
-//     Same release binaries; submodule available for source builds.
+//     Same release binaries; the stamped tag carries the vendor as raw
+//     source (submodule de-registered), so source builds work directly.
 //
 //   Git branch consumer (ref: dev, version 0.0.0):
 //     Download skipped. Compiles from vendor source or inits
@@ -93,9 +95,11 @@
 //   the vendored submodule's working tree stays clean and incremental
 //   caches survive across hook invocations.
 //
-//   Rebuild detection (contributors only): every `.rs` file under the
-//   tracked vendor dirs is a dependency, plus Cargo.lock, the bindings
-//   barrel, build.json, asset_hashes.dart, pubspec.yaml, and this hook.
+//   Rebuild detection (contributors only): every *.rs, *.rs.data (baked
+//   data include), and Cargo.toml under the tracked vendor dirs is a
+//   dependency, plus the workspace configs (Cargo.toml/.lock,
+//   rust-toolchain, .cargo/config, capi build.rs), the bindings barrel,
+//   build.json, asset_hashes.dart, pubspec.yaml, and this hook.
 
 import 'dart:convert';
 import 'dart:io';
@@ -116,9 +120,9 @@ final _log = Logger('icu_kit:build');
 /// tool/regen_bindings.dart.
 const _bindingsAssetName = 'src/runtime/native/bindings/lib.g.dart';
 
-/// Subdirectories of the vendored ICU4X submodule whose Rust source files
-/// are tracked as build dependencies. Any `.rs` change under these paths
-/// triggers a rebuild via `package:hooks` content-hash comparison.
+/// Subdirectories of the vendored ICU4X submodule tracked as build
+/// dependencies. Any file change under these paths triggers a rebuild
+/// via `package:hooks` content-hash comparison.
 const _trackedRustDirs = ['components', 'utils', 'provider', 'ffi/capi'];
 
 // ── build.json — single source of truth for all build constants ──
@@ -381,6 +385,39 @@ Future<void> _compileIcuCapi(
     if (isNoStd) 'RUSTFLAGS': '-Zunstable-options -Cpanic=immediate-abort',
   };
 
+  // Android: point cargo at the NDK clang driver Flutter provides. Without
+  // this cargo links Android targets with the HOST `cc` (mingw ld / host
+  // clang), which rejects the ELF flags and produces host-linked objects.
+  if (input.config.code.targetOS == OS.android) {
+    final cc = input.config.code.cCompiler;
+    if (cc != null) {
+      final compilerDir = p.dirname(p.fromUri(cc.compiler));
+      final ndkTriple = rustTarget == 'armv7-linux-androideabi'
+          ? 'armv7a-linux-androideabi'
+          : rustTarget;
+      // The NDK per-API clang driver is a `.cmd` batch wrapper on Windows
+      // hosts (e.g. aarch64-linux-android21-clang.cmd); passing the bare name
+      // makes cargo fail with "could not exec the linker ... program not
+      // found". Append the host executable extension so Android cross-compiles
+      // link from a Windows host as well as Linux/macOS. Platform.isWindows
+      // here is the BUILD host (which runs cargo), not the Android target.
+      final clangExt = Platform.isWindows ? '.cmd' : '';
+      // llvm-ar is a native `llvm-ar.exe` on Windows; make the `.exe` explicit
+      // so a tool that stats the archiver path (the cc crate) finds it, rather
+      // than the extensionless name that only exists once CreateProcess appends
+      // `.exe` at spawn time.
+      final exeExt = Platform.isWindows ? '.exe' : '';
+      final envKey =
+          'CARGO_TARGET_${rustTarget.toUpperCase().replaceAll('-', '_')}';
+      cargoEnv['${envKey}_LINKER'] = p.join(
+        compilerDir,
+        '${ndkTriple}21-clang$clangExt',
+      );
+      cargoEnv['${envKey}_AR'] = p.join(compilerDir, 'llvm-ar$exeExt');
+      _log.info('NDK linker: ${cargoEnv['${envKey}_LINKER']}');
+    }
+  }
+
   final workdir = Directory.fromUri(submodule);
   final crateType = buildStatic ? 'staticlib' : 'cdylib';
 
@@ -520,8 +557,9 @@ void _verifyBindings(Uri bindingsBarrel) {
 /// exist BEFORE the first build — never derive this list from build
 /// outputs, or caching goes circular and binaries go stale.
 ///
-/// The vendor walk only runs when the submodule is present (pub
-/// consumers have no vendor — the download path serves them).
+/// The vendor walk only runs when the vendor source is on disk. It
+/// always is for pub installs (the vendor ships in the tarball); it's
+/// absent only on a git clone without `--recursive`.
 void _trackDependencies({
   required BuildOutputBuilder output,
   required Uri packageRoot,
@@ -539,12 +577,36 @@ void _trackDependencies({
   if (!hasVendorSource(packageRoot)) return;
 
   final submodule = packageRoot.resolve('vendor/icu4x/');
-  output.dependencies.add(submodule.resolve('Cargo.lock'));
+  // Workspace + crate configs: feature edits, toolchain bumps, and linker
+  // flags change the binary without touching any .rs file.
+  const configs = [
+    'Cargo.toml',
+    'Cargo.lock',
+    'rust-toolchain.toml',
+    'rust-toolchain',
+    '.cargo/config.toml',
+    '.cargo/config',
+    'ffi/capi/Cargo.toml',
+    'ffi/capi/build.rs',
+  ];
+  for (final file in configs) {
+    final uri = submodule.resolve(file);
+    if (File.fromUri(uri).existsSync()) {
+      output.dependencies.add(uri);
+    }
+  }
   for (final dirName in _trackedRustDirs) {
     final dir = Directory.fromUri(submodule.resolve('$dirName/'));
     if (!dir.existsSync()) continue;
     for (final entity in dir.listSync(recursive: true, followLinks: false)) {
-      if (entity is File && entity.path.endsWith('.rs')) {
+      // What cargo actually reads: sources, baked-data includes, and
+      // per-crate manifests. NOT every file — provider/source/ alone is
+      // 7k+ files of datagen-only CLDR input that cargo never touches,
+      // and package:hooks content-hashes every dependency per run.
+      if (entity is File &&
+          (entity.path.endsWith('.rs') ||
+              entity.path.endsWith('.rs.data') ||
+              entity.path.endsWith('Cargo.toml'))) {
         output.dependencies.add(entity.uri);
       }
     }
@@ -566,7 +628,7 @@ void _trackDependencies({
 /// ```
 ///
 /// Default is `true` — full CLDR baked in. Set to `false` for the lean
-/// binary without the ~16 MB CLDR statics; apps must then init with
+/// binary without the ~19 MB CLDR statics; apps must then init with
 /// `IcuData.lazy(...)` to load per-locale postcards on demand.
 bool _bundleCldr(BuildInput input) {
   final raw = input.userDefines['bundleCldrData'];
@@ -588,7 +650,7 @@ hooks:
       bundleCldrData: true
 ```
 
-* Lean binary — no CLDR statics (~16 MB smaller); the app must init with
+* Lean binary — no CLDR statics (~19 MB smaller); the app must init with
   `IcuData.lazy(...)` and load per-locale postcards at runtime:
 ```
 hooks:

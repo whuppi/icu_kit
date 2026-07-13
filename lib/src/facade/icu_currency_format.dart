@@ -5,6 +5,7 @@ import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
 import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — currency-aware decimal formatting.
 ///
@@ -62,6 +63,7 @@ final class IcuCurrencyFormat {
       );
       return IcuCurrencyFormat._symbol(formatter);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Currency formatter unavailable for $locale: $e',
         locale: locale,
@@ -96,6 +98,7 @@ final class IcuCurrencyFormat {
       );
       return IcuCurrencyFormat._long(formatter, currencyCode);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Long currency formatter unavailable for $locale + $currencyCode: $e',
         locale: locale,
@@ -129,6 +132,27 @@ final class IcuCurrencyFormat {
       return symbol.format(decimal, currencyCode);
     }
     return _long!.format(decimal);
+  }
+
+  /// EXPERIMENTAL — format [value] into typed parts (the symbol or name as a
+  /// `currency` part, the number as integer / group / decimal / fraction),
+  /// mirroring ECMA-402 `formatToParts`. Same [currencyCode] contract as
+  /// [format]. Concatenating every part's `value` reproduces [format].
+  @experimental
+  List<IcuNumberPart> formatToParts(num value, {String? currencyCode}) {
+    final decimal = toDecimalFfi(value);
+    final symbol = _symbol;
+    if (symbol != null) {
+      if (currencyCode == null || currencyCode.length != 3) {
+        throw IcuDataError(
+          'Symbol-style IcuCurrencyFormat.formatToParts requires a 3-letter '
+          'ISO 4217 currencyCode (got: ${currencyCode ?? "null"})',
+          marker: 'CurrencyFormatter.formatToParts',
+        );
+      }
+      return partsToList(symbol.formatToParts(decimal, currencyCode));
+    }
+    return partsToList(_long!.formatToParts(decimal));
   }
 
   /// EXPERIMENTAL — the currency code this formatter is pinned to, or null

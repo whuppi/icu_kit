@@ -36,6 +36,7 @@ final class IcuLocaleFallbacker {
       );
       return IcuLocaleFallbacker._(inner.forConfig(config));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Fallbacker unavailable: $e',
         marker: 'LocaleFallbacker',

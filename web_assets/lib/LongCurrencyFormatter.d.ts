@@ -2,6 +2,7 @@
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
 
@@ -39,4 +40,11 @@ export class LongCurrencyFormatter {
      * See the [Rust documentation for `format_fixed_decimal`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/long_formatter/struct.LongCurrencyFormatter.html#method.format_fixed_decimal) for more information.
      */
     format(value: Decimal): string;
+
+    /**
+     * Format `value` into typed parts (ECMA-402 `formatToParts` shape):
+     * the long currency name as a single `currency` part, the number as
+     * integer / group / decimal / fraction.
+     */
+    formatToParts(value: Decimal): FormattedNumberParts;
 }

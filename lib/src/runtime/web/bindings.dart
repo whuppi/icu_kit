@@ -3,8 +3,8 @@
 // facades use (used surface only); each mirror copies the native
 // binding's Dart-visible signature exactly, and the Dart↔JS name mapping
 // (e.g. a Dart factory `cardinal` calling the JS static `createCardinal`)
-// lives inside the mirror, invisibly. Maintenance rules:
-// docs/UPDATING.md §5b.
+// lives inside the mirror, invisibly. Maintenance rules: the mirror-
+// maintenance recipe in docs/UPDATING.md.
 //
 // Web-only code — reachable only through `../bindings.dart`.
 export 'bindings/locale.dart';

@@ -12,10 +12,10 @@ ECMA-402 / Unicode capabilities exposed via the public facade.
 |---|---|---|:---:|
 | **Locale** | `IcuLocale`, `IcuLocaleCanonicalizer`, `IcuLocaleExpander`, `IcuLocaleDirectionality`, `IcuLocaleFallbacker` | Parse + canonicalize + maximize/minimize + RTL/LTR + CLDR fallback chain | A |
 | **Plural rules** | `IcuPluralRules` | Cardinal + ordinal, every CLDR locale | A |
-| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat | A |
-| **Currency** | `IcuCurrencyFormat` | Symbol form + long form (plural-correct "1 US dollar" / "2 US dollars") | C ⚠ |
-| **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign | C ⚠ |
-| **Units** | `IcuUnitFormat` | CLDR unit identifier (e.g. `"kilometer-per-hour"`); long / short / narrow widths | C ⚠ |
+| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat, incl. `formatToParts` (typed part output) | A |
+| **Currency** | `IcuCurrencyFormat` | Symbol form + long form (plural-correct "1 US dollar" / "2 US dollars"); `formatToParts` (symbol/name → `currency` part) | C ⚠ |
+| **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign; `formatToParts` (→ `percentSign`, typed signs) | C ⚠ |
+| **Units** | `IcuUnitFormat` | CLDR unit identifier (e.g. `"kilometer-per-hour"`); long / short / narrow widths; `formatToParts` (unit name → one `unit` part) | C ⚠ |
 | **Date** | `IcuDateFormat` | 10 field-set constructors (ymd, md, ymde, mde, de, y, m, d, e, ym), length / alignment / year-style | A |
 | **Time** | `IcuTimeFormat` | length / time-precision / alignment | A |
 | **Date+Time** | `IcuDateTimeFormat` | 7 field sets (dt, mdt, ymdt, det, mdet, ymdet, et) | A |
@@ -57,6 +57,20 @@ Tier legend: **A** = STABLE (`icu_*` Rust crates). **B** = STABLE-WITH-CAVEAT (`
 | Web (WASM) | dart:js_interop | n/a (`tool/build_wasm.dart`) | ✓ (`fvm dart test -p chrome`) |
 
 Build-hook works on every platform. Test coverage gap is CI matrix only — every binary built locally has been smoke-tested.
+
+### Web engines — three ways to ship the data
+
+Web has three interchangeable engines behind the same facade. The two ICU4X engines carry ICU4X and produce byte-identical output everywhere. The browser Intl engine carries nothing — it serves the facade off the browser's own `Intl` (ECMA-402), so it ships **zero bytes** but covers only what `Intl` covers, and its output tracks each browser's CLDR version.
+
+| Engine | Download | Data source | Select with |
+|---|---|---|---|
+| ICU4X (bundled) | ~19 MB | ICU4X, all locales | `icu_kit:setup` |
+| ICU4X (lean) | ~2.1 MB + postcards | ICU4X, sliced locales | `icu_kit:setup --lean` |
+| Browser Intl | 0 bytes | the browser's `Intl` | `IcuKit.init(webEngine: WebEngine.browserIntl)` |
+
+The per-facade capability breakdown for the browser Intl engine (FULL / PARTIAL / THROW per family) lives in one place: [README → Browser Intl mode capability matrix](../README.md#browser-intl-mode-zero-download). It's the user-facing decision surface, so it's kept there rather than duplicated here.
+
+The browser Intl engine registers every facade class; the ones it can't serve raise `IcuUnsupportedError` at the call, never a silent wrong answer. A drift guard (`test/browser_engine/contract_guard_test.dart`) derives the full class set from the binding source and fails if the shim misses one — see [`UPDATING.md`](UPDATING.md).
 
 ---
 
@@ -105,7 +119,8 @@ Facades without per-row corpus (relative-time, currency, percent, unit, display 
 | Gap | Why deferred | Trigger |
 |---|---|---|
 | Tier C facades carry `@experimental` annotations | Upstream Rust API still being redesigned (PR #7789) | Upstream lands the unified `CurrencyDisplay` |
-| No formatToParts / resolvedOptions ECMA-402 introspection | ICU4X's Rust API doesn't expose part-level output today | Upstream exposes formatToParts |
+| `formatToParts` covers the NUMBER family only — date/time, list, and relative-time part output is not built yet | Only the number formatters have parts patches so far | Add per-formatter parts patches (same collect → flatten → gap-fill shape) |
+| No `resolvedOptions` ECMA-402 introspection | ICU4X's Rust API doesn't expose the resolved option bag | Upstream exposes it, or we derive it facade-side |
 | `Intl.Segmenter.containing` / `.before` / `.after` helpers | ICU4X iterator-only model | Add Dart-side helpers without changing ICU4X |
 | Deprecated calendars (`japaneseExtended`, `iso8601`-only) | ICU4X 2.2 marks them deprecated | Tracking upstream removal in 2.3+ |
 | No automated staleness check for the icu4x submodule | Manual bumps are acceptable at a once-a-quarter cadence; a CI job that watches upstream tags and opens an issue is unbuilt | When bump cadence starts hurting |

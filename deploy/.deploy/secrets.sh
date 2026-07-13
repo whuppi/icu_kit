@@ -18,7 +18,7 @@ set -e
 
 REPO="whuppi/icu_kit"
 BWS="${HOME}/bin/bws --color no"
-BW_PREFIX="cellar"
+BW_PREFIX="icu_kit"
 export BWS_SERVER_URL="${BWS_SERVER_URL:-https://vault.bitwarden.eu}"
 
 # ── Auth ─────────────────────────────────────────────────────────────────────

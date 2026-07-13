@@ -29,6 +29,7 @@ final class IcuRelativeTimeFormat {
       final ffi = _build(locale, loc.ffi, width, unit, ffiNumeric);
       return IcuRelativeTimeFormat._(ffi);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Relative-time formatter unavailable for $locale ($width, $unit): $e',
         locale: locale,

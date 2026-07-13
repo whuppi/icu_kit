@@ -3,6 +3,7 @@ import { CurrencyWidth } from "./CurrencyWidth.mjs"
 import { DataError } from "./DataError.mjs"
 import { DataProvider } from "./DataProvider.mjs"
 import { Decimal } from "./Decimal.mjs"
+import { FormattedNumberParts } from "./FormattedNumberParts.mjs"
 import { Locale } from "./Locale.mjs"
 import wasm from "./diplomat-wasm.mjs";
 import * as diplomatRuntime from "./diplomat-runtime.mjs";
@@ -128,6 +129,30 @@ export class CurrencyFormatter {
             functionCleanupArena.free();
 
             write.free();
+        }
+    }
+
+    /**
+     * Format `value` with `currency_code` into typed parts (ECMA-402
+     * `formatToParts` shape): the symbol as a `currency` part, the number
+     * as integer / group / decimal / fraction. Returns an EMPTY part list
+     * for an invalid currency code (same as `format`'s empty output).
+     */
+    formatToParts(value, currencyCode) {
+        let functionCleanupArena = new diplomatRuntime.CleanupArena();
+
+        const currencyCodeSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, currencyCode)));
+
+        const result = wasm.icu4x_CurrencyFormatter_format_to_parts_mv1(this.ffiValue, value.ffiValue, currencyCodeSlice.ptr);
+
+        try {
+            return new FormattedNumberParts(diplomatRuntime.internalConstructor, result, []);
+        }
+
+        finally {
+            diplomatRuntime.FUNCTION_PARAM_ALLOC.clean();
+            functionCleanupArena.free();
+
         }
     }
 

@@ -61,6 +61,7 @@ final class IcuSegmenter {
     try {
       return IcuSegmenter._grapheme(dispatch.graphemeClusterSegmenterDefault());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Grapheme segmenter unavailable: $e',
         marker: 'GraphemeClusterSegmenter',
@@ -80,6 +81,7 @@ final class IcuSegmenter {
             : dispatch.wordSegmenterAutoWithContentLocale(locale!, loc.ffi),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Word segmenter unavailable for ${locale ?? "default"}: $e',
         locale: locale,
@@ -100,6 +102,7 @@ final class IcuSegmenter {
             : dispatch.sentenceSegmenterWithContentLocale(locale!, loc.ffi),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Sentence segmenter unavailable for ${locale ?? "default"}: $e',
         locale: locale,
@@ -174,6 +177,7 @@ final class IcuLineSegmenter {
     try {
       return IcuLineSegmenter._(icu.LineSegmenter.auto());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Line segmenter unavailable: $e',
         marker: 'LineSegmenter.auto',

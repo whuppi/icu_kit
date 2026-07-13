@@ -63,6 +63,7 @@ final class IcuIdna {
     try {
       return IcuIdna._(icu.IdnaProcessor(), mode);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'IDNA processor unavailable: $e',
         marker: 'IdnaProcessor',

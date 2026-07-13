@@ -14,6 +14,12 @@
 //     `dart run tool/build_wasm.dart [--lean]` when missing)
 //   * fat + lean native cdylib (the hook's prebuilt cache; produced by any
 //     `dart test` run of the main package (fat) / lean_smoke fixture (lean))
+//   * the fat−lean cdylib delta (the "CLDR statics" number)
+//
+// Secondary surfaces: size numbers also live in help text, doc comments,
+// and build comments (_secondaryClaims below). Each named file is asserted
+// to carry the measured rendering of exactly the claims it makes — same
+// measure-then-assert direction, so no stored expectation can go stale.
 //
 // Exit 1 on any mismatch (always) or any SKIP (--strict). Run it after an
 // icu4x submodule bump and before a release — see docs/UPDATING.md.
@@ -26,6 +32,19 @@ import 'dart:io';
 import 'package:icu_kit/src/hook/marker_presets.dart';
 
 const _readmePath = 'README.md';
+
+/// Non-README surfaces that state a measured size. file → the labels it
+/// claims. Labels must match the `check`/`_measured` keys in main().
+const _secondaryClaims = <String, List<String>>{
+  'bin/setup.dart': ['wasm fat raw', 'wasm lean raw'],
+  'lib/src/runtime/web/init.dart': ['wasm fat raw', 'wasm lean raw'],
+  'Makefile': ['wasm fat raw', 'wasm lean raw'],
+  '.github/workflows/full-test.yml': ['wasm lean raw'],
+  'README.md': ['native CLDR delta'],
+  'lib/src/runtime/native/init.dart': ['native CLDR delta'],
+  'hook/build.dart': ['native CLDR delta'],
+  'pubspec.yaml': ['native CLDR delta'],
+};
 const _vendor = 'vendor/icu4x';
 const _measureLocale = 'de';
 
@@ -48,11 +67,14 @@ void main(List<String> args) async {
   final skips = <String>[];
   final passes = <String>[];
 
+  final measured = <String, int>{};
+
   void check(String label, int? bytes) {
     if (bytes == null) {
       skips.add(label);
       return;
     }
+    measured[label] = bytes;
     final candidates = _formatCandidates(bytes);
     final hit = candidates.any(readme.contains);
     final shown = candidates.join(' | ');
@@ -66,8 +88,16 @@ void main(List<String> args) async {
   }
 
   // ── native cdylibs (hook prebuilt caches) ────────────────────────────
-  check('native fat cdylib', _findDylib(lean: false));
-  check('native lean cdylib', _findDylib(lean: true));
+  final fatDylib = _findDylib(lean: false);
+  final leanDylib = _findDylib(lean: true);
+  check('native fat cdylib', fatDylib);
+  check('native lean cdylib', leanDylib);
+  // The "CLDR statics" number quoted wherever lean-vs-fat is explained.
+  if (fatDylib != null && leanDylib != null) {
+    measured['native CLDR delta'] = fatDylib - leanDylib;
+  } else {
+    skips.add('native CLDR delta (needs both cdylib caches)');
+  }
 
   // ── wasm, raw + gzipped ──────────────────────────────────────────────
   for (final (label, file) in [
@@ -93,6 +123,32 @@ void main(List<String> args) async {
     for (final spec in _postcardSpecs) {
       stderr.writeln('datagen: $_measureLocale / $spec ...');
       check('postcard $spec ($_measureLocale)', _slicePostcard(spec));
+    }
+  }
+
+  // ── secondary surfaces: each file asserted for the claims it makes ──
+  for (final entry in _secondaryClaims.entries) {
+    final file = File(entry.key);
+    if (!file.existsSync()) {
+      failures.add('${entry.key} missing but listed in _secondaryClaims');
+      continue;
+    }
+    final text = file.readAsStringSync();
+    for (final label in entry.value) {
+      final bytes = measured[label];
+      if (bytes == null) {
+        skips.add('${entry.key}: $label (unmeasured)');
+        continue;
+      }
+      final candidates = _formatCandidates(bytes);
+      if (candidates.any(text.contains)) {
+        passes.add('${entry.key}: $label');
+      } else {
+        failures.add(
+          '${entry.key}: $label measured $bytes bytes → file contains '
+          'none of: ${candidates.join(' | ')}',
+        );
+      }
     }
   }
 

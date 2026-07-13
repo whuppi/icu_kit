@@ -71,6 +71,7 @@ final class IcuListFormat {
     try {
       return IcuListFormat._(build(locale, loc.ffi));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'List formatter unavailable for $locale: $e',
         locale: locale,

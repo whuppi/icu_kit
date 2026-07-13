@@ -50,6 +50,10 @@ concurrency:
 env:
   DEFAULT_RUNNER: ubuntu-24.04
   DEFAULT_PORTABILITY: 'true'
+  # Relative on purpose — the release sets this same value, and the
+  # compile-* guard rows below rely on it to reproduce the release's
+  # output layout (only compile_rust.sh reads it; other targets ignore it).
+  COMPILE_OUTPUT_DIR: out
 
 jobs:
   inputs:
@@ -110,9 +114,14 @@ jobs:
           - { name: "web: Lean Chrome (ubuntu-x64)",      runner: ubuntu-24.04, make: test-web-lean, timeout: 40, chrome: true, headless-display: true, wasm-cache: true, wasm-build: true }
           - { name: "web: Lean Chrome (macos-arm64) [P]", runner: macos-14,     make: test-web-lean, timeout: 40, chrome: true, wasm-cache: true, wasm-build: true, portability: true }
 
+          # ── Browser Intl engine — zero wasm, the app's classes served off
+          #    globalThis.Intl (ECMA-402). No wasm-cache/wasm-build: the whole
+          #    point is the browser ships the data ──
+          - { name: "web: BrowserIntl (ubuntu-x64)", runner: ubuntu-24.04, make: test-browser-engine, timeout: 40, chrome: true, headless-display: true }
+
           # ── WASM build — proves the web artifact still builds from the
           #    vendored source (nightly Rust self-provisioned by the tool;
-          #    wasm-opt from the Flutter SDK the runner installs) ──
+          #    wasm-opt from the pinned binaryen cache (compile_rust.sh --wasm-opt)) ──
           - { name: "wasm: build (ubuntu-x64)",       runner: ubuntu-24.04,        make: build-wasm, timeout: 40 }
           - { name: "wasm: build (macos-arm64) [P]",  runner: macos-14,            make: build-wasm, timeout: 40, portability: true }
 
@@ -130,7 +139,7 @@ jobs:
 
           # ── Integration smokes (real library, real targets — each cross-
           #    compiles icu_capi for that platform) ──
-          - { name: "int: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: test-example-android, timeout: 60, java: true, hw-accel: true, gradle-cache: true, emulator: true, free-disk: true }
+          - { name: "int: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: test-example-android, timeout: 60, java: true, hw-accel: true, gradle-cache: true, emulator: true }
           - { name: "int: Android (macos-intel) [P]", runner: macos-15-intel,      make: test-example-android, timeout: 80, java: true, hw-accel: true, gradle-cache: true, emulator: true, portability: true }
           - { name: "int: Android (win-x64) [P]",     runner: windows-2025-vs2026, make: test-example-android, timeout: 80, java: true, hw-accel: true, gradle-cache: true, emulator: true, portability: true }
           - { name: "int: iOS (macos-arm64)",      runner: macos-14,            make: test-example-ios,     timeout: 60, xcode-cache: true, xcode-cache-target: ios, pods-cache: true, simulator: true }
@@ -142,7 +151,7 @@ jobs:
           - { name: "int: Web (win-x64) [P]",      runner: windows-2025-vs2026, make: test-example-web, timeout: 60, chrome: true, wasm-cache: true, wasm-build: true, portability: true }
 
           # ── Verify — release builds of the example per target ──
-          - { name: "verify: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: verify-android, timeout: 50, java: true, gradle-cache: true, free-disk: true }
+          - { name: "verify: Android (ubuntu-x64)",      runner: ubuntu-24.04,        make: verify-android, timeout: 50, java: true, gradle-cache: true }
           - { name: "verify: Android (macos-arm64) [P]", runner: macos-14,            make: verify-android, timeout: 50, java: true, gradle-cache: true, portability: true }
           - { name: "verify: Android (win-x64) [P]",     runner: windows-2025-vs2026, make: verify-android, timeout: 70, java: true, gradle-cache: true, portability: true }
           - { name: "verify: iOS (macos-arm64)",    runner: macos-14,            make: verify-ios,     timeout: 50, xcode-cache: true, xcode-cache-target: ios, pods-cache: true }
@@ -157,6 +166,23 @@ jobs:
           #    build web with the 2 MB wasm + postcards ──
           - { name: "verify: Lean Web (ubuntu-x64)",      runner: ubuntu-24.04, make: verify-web-lean, timeout: 50, wasm-cache: true, wasm-build: true }
           - { name: "verify: Lean Web (macos-arm64) [P]", runner: macos-14,     make: verify-web-lean, timeout: 50, wasm-cache: true, wasm-build: true, portability: true }
+
+          # ── Release-compile guard — the ONLY PR jobs that run
+          #    tool/compile_rust.sh (the release cross-compiler). Every
+          #    other job builds icu_capi through hook/build.dart; these
+          #    catch compile_rust.sh drifting from the hook before a
+          #    release does. Mirrors the release compile matrix 1:1 —
+          #    every target, so no compile path stays untested-until-
+          #    release (ios is the only staticlib + pinned-nightly +
+          #    -Zbuild-std path; each OS has its own linker path). The
+          #    workflow's relative COMPILE_OUTPUT_DIR reproduces the
+          #    release output layout. ──
+          - { name: "compile: macOS (macos-arm64)",  runner: macos-14,            make: compile-macos,   timeout: 40 }
+          - { name: "compile: iOS (macos-arm64)",    runner: macos-14,            make: compile-ios,     timeout: 45 }
+          - { name: "compile: Android (ubuntu-x64)", runner: ubuntu-24.04,        make: compile-android, timeout: 45 }
+          - { name: "compile: Linux (ubuntu-x64)",   runner: ubuntu-24.04,        make: compile-linux,   timeout: 35 }
+          - { name: "compile: WASM (ubuntu-x64)",    runner: ubuntu-24.04,        make: compile-wasm,    timeout: 60 }
+          - { name: "compile: Windows (win-x64)",    runner: windows-2025-vs2026, make: compile-windows, timeout: 45 }
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}

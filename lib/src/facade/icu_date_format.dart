@@ -242,6 +242,7 @@ final class IcuDateFormat {
     try {
       return IcuDateFormat._(build(locale, loc.ffi));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Date formatter unavailable for $locale: $e',
         locale: locale,

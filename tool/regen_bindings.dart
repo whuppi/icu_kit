@@ -20,9 +20,8 @@
 // The build hook registers the asset under the path of our lib.g.dart, so
 // the `@Native` symbols inside the generated parts resolve to libicu_capi.
 
+import 'dart:convert';
 import 'dart:io';
-
-const _icu4xTag = 'icu@2.2.0';
 
 void main(List<String> args) async {
   final pkgRoot = Directory.current;
@@ -36,7 +35,11 @@ void main(List<String> args) async {
   final upstreamOut = Directory('${submodule.path}/ffi/dart/lib/src/bindings');
   final ours = Directory('${pkgRoot.path}/lib/src/runtime/native/bindings');
 
-  print('Regenerating Dart bindings from $_icu4xTag');
+  final baseTag =
+      (jsonDecode(File('${pkgRoot.path}/build.json').readAsStringSync())
+              as Map<String, dynamic>)['baseTag']
+          as String;
+  print('Regenerating Dart bindings from $baseTag');
   print('  cargo run -p diplomat-gen -- dart');
   print('  (in ${submodule.path})');
 

@@ -2,6 +2,7 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
+import 'icu_number_parts.dart';
 
 /// Locale-aware decimal formatting — STABLE.
 ///
@@ -50,6 +51,7 @@ final class IcuNumberFormat {
       );
       return IcuNumberFormat._(formatter);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Decimal formatter unavailable for $locale: $e',
         locale: locale,
@@ -68,6 +70,14 @@ final class IcuNumberFormat {
     final decimal = _toDecimal(value);
     return _ffi.format(decimal);
   }
+
+  /// Format [value] into typed parts (integer / group / decimal / fraction /
+  /// sign), mirroring ECMA-402 `Intl.NumberFormat.prototype.formatToParts`.
+  ///
+  /// Concatenating every part's `value` reproduces [format]'s output exactly.
+  List<IcuNumberPart> formatToParts(num value) {
+    return partsToList(_ffi.formatToParts(_toDecimal(value)));
+  }
 }
 
 /// Maps Dart's `num` to ICU4X's `Decimal`. Top-level so both decimal and
@@ -75,6 +85,15 @@ final class IcuNumberFormat {
 icu.Decimal toDecimalFfi(num value) => _toDecimal(value);
 
 icu.Decimal _toDecimal(num value) {
+  // On the web, `is int` is true for any integer-VALUED double — including
+  // -0.0 and ±infinity (dart2js/dart2wasm number semantics). Route those
+  // through the double constructor so ICU4X applies one contract on every
+  // engine: sign preserved for -0.0, throw for non-finite. The int branch
+  // would silently drop the sign (-0.0) or coerce ±infinity to 0.
+  final d = value.toDouble();
+  if (!d.isFinite || (d == 0 && d.isNegative)) {
+    return icu.Decimal.fromDoubleWithRoundTripPrecision(d);
+  }
   if (value is int) return icu.Decimal.fromInt(value);
   return icu.Decimal.fromDoubleWithRoundTripPrecision(value as double);
 }

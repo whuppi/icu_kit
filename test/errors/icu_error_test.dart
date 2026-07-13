@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 void main() {
   group('IcuError sealed hierarchy', () {
     test('IcuLocaleParseError carries the offending input', () {
-      const e = IcuLocaleParseError('not-a-locale');
+      final e = IcuLocaleParseError('not-a-locale');
       expect(e.input, 'not-a-locale');
       expect(e.message, contains('not-a-locale'));
       expect(e, isA<IcuError>());
@@ -37,6 +37,15 @@ void main() {
       expect(e.message, contains('macos-arm64'));
     });
 
+    test('IcuUnsupportedError carries capability + engine', () {
+      final e = IcuUnsupportedError('IcuBidi', engine: 'browser-intl');
+      expect(e.capability, 'IcuBidi');
+      expect(e.engine, 'browser-intl');
+      expect(e.message, contains('IcuBidi'));
+      expect(e.message, contains('browser-intl'));
+      expect(e, isA<IcuError>());
+    });
+
     test('exhaustive switch compiles', () {
       // This test exists to lock in the sealed contract: every IcuError
       // subtype MUST be handled. If a new subtype is added without updating
@@ -48,10 +57,11 @@ void main() {
         IcuMissingDataError() => 'missingData',
         IcuOptionError() => 'option',
         IcuLoadError() => 'platform',
+        IcuUnsupportedError() => 'unsupported',
         IcuIdnaError() => 'idna',
       };
 
-      expect(describe(const IcuLocaleParseError('x')), 'parse');
+      expect(describe(IcuLocaleParseError('x')), 'parse');
       expect(describe(const IcuDataError('m')), 'data');
       expect(
         describe(const IcuMissingDataError('m', locale: 'fr')),
@@ -60,6 +70,10 @@ void main() {
       expect(describe(IcuOptionError('o', 1)), 'option');
       expect(describe(IcuLoadError('p', null)), 'platform');
       expect(
+        describe(IcuUnsupportedError('c', engine: 'browser-intl')),
+        'unsupported',
+      );
+      expect(
         describe(IcuIdnaError(IcuIdnaErrorKind.invalid, 'bad', 'toAscii')),
         'idna',
       );
@@ -67,7 +81,7 @@ void main() {
 
     test('IcuError implements Exception (catchable as Exception)', () {
       try {
-        throw const IcuLocaleParseError('bad');
+        throw IcuLocaleParseError('bad');
       } on Exception catch (e) {
         expect(e, isA<IcuError>());
       }

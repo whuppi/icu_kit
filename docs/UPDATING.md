@@ -44,14 +44,44 @@ Never `git push --mirror` the fork: mirror mode deletes every remote ref
 that doesn't exist locally, including `main` and any patch branch not
 currently checked out.
 
+### Disable Actions on the fork
+
+The vendored fork is consumed as **source** — this repo's own CI
+(`make analyze` / `make check` / the test targets) is the gate. The fork's
+inherited upstream workflows (Release, language-binding CI, CodeQL, OpenSSF
+Scorecard, scheduled scans) validate nothing this repo uses. On the fork, once:
+
+**Settings → Actions → General → "Disable actions for this repository".**
+
+- **Free-tier drain.** Public-repo Actions are free but not unthrottled — a
+  fork's heavy Rust/scan pipelines burn org-wide runner allocation and can
+  throttle the whole org's hosted runners (every repo's jobs stuck "Waiting for
+  a runner"). ICU4X's upstream pipelines are especially heavy.
+- **Accidental publish.** §1 pushes the patch branch and an `icu@*` tag to the
+  fork on every bump; an upstream `on: push tags` Release pipeline fires on that
+  tag and can cut a GitHub release / publish from your mirror. Disabling
+  defuses it.
+- **Off by default.** The fork is home; upstream is just the base. Routine fork
+  work — patches, rebases, tag-moves — never needs the fork's own CI; this
+  repo's CI is the gate. The only exception is a deliberate, standalone upstream
+  PR (occasional, never during a fix): flip Actions on for that one PR, then
+  back off. Off is the resting state.
+
+Disable at the **setting** level — never delete the workflow YAMLs. Deleting
+them diverges the mirror from upstream and breaks the clean rebase-on-tag in
+§1; the files stay byte-identical to upstream and just never fire.
+
 ### The marker discipline
 
 The in-file markers are the authoritative inventory of what we patch —
-never maintain a list by hand:
+never maintain a list by hand. Patches live under `ffi/capi/` (the
+Diplomat IDL surface) AND, since formatToParts, under `components/` (the
+one component patch: `dimension/percent/format.rs` adds `write_to_parts`
+so the percent formatter emits typed parts):
 
 ```sh
 cd vendor/icu4x
-grep -rl "icu_kit patch" ffi/capi/
+grep -rl "icu_kit patch" ffi/capi/ components/
 ```
 
 - **Hand-edits to existing upstream files** sit between paired
@@ -99,7 +129,8 @@ grep -rl "icu_kit patch" ffi/capi/
    ```sh
    git checkout icu_kit/<old-icu-version>-patches
    git rebase icu@<new-tag>
-   # Resolve any conflicts in ffi/capi/src/{currency,percent,units,relative_time,idna}_formatter.rs
+   # Resolve any conflicts in ffi/capi/src/{currency,percent,units,relative_time,idna}_formatter.rs,
+   # ffi/capi/src/{formatted_parts,decimal}.rs, and components/experimental/src/dimension/percent/format.rs
    git checkout -b icu_kit/<new-icu-version>-patches
    ```
 
@@ -115,7 +146,10 @@ grep -rl "icu_kit patch" ffi/capi/
 
    The Rust half checks `icu_capi` in BOTH feature configurations
    (bundled CLDR on and off) and fails on any cargo warning inside a
-   line we changed vs the base tag. The lean config is the one that
+   line we changed vs the base tag. Then run `make test-rust` — the
+   patched crate's cargo tests with the hook's native feature set — so
+   a mis-resolved rebase conflict fails here, not three layers up in a
+   Dart suite. The lean config is the one that
    catches feature-gated import gaps — fix them by cfg-gating the
    import to the config that uses it, never by adding a blanket import
    the other config warns on.
@@ -125,7 +159,7 @@ grep -rl "icu_kit patch" ffi/capi/
 
    ```sh
    cd vendor/icu4x
-   for f in $(grep -rl "icu_kit patch" ffi/capi/); do
+   for f in $(grep -rl "icu_kit patch" ffi/capi/ components/); do
      count=$(git diff icu@OLD..icu@NEW -- "$f" | wc -l | tr -d ' ')
      [ "$count" -gt "0" ] && echo "RISK : $f ($count lines)" || echo "clean: $f"
    done
@@ -388,11 +422,160 @@ Test by running a fresh `fvm dart test` — the build hook picks up the new tool
 - Extension types cannot declare `toString`/`hashCode`/`==` — expose the value under a plain shared name instead (native gets a one-line extension in `runtime/native/extras.dart`, the mirror declares the same member; `Locale.asBcp47` is the precedent).
 - **On an icu4x submodule bump:** rerun the regen tools, then run the chrome suite — its failures point at exactly the mirrors whose JS names or shapes changed.
 
+## §5c — browser Intl engine (runtime/web_intl/)
+
+`lib/src/runtime/web_intl/` is the browser Intl engine: a Dart-built module object served off `globalThis.Intl` instead of the WASM module, built by `buildBrowserIntlModule()` and installed at the same `IcuKit.module` seam by `IcuKit.init(webEngine: WebEngine.browserIntl)` (which deferred-loads this directory). One file per facade family (`locale.dart`, `number_format.dart`, …, `datetime.dart`), each overriding throw-all defaults for the classes it can serve. Rules:
+
+- **The web binding + dispatch are the canonical shape.** Every class the browser module registers must match what `lib/src/runtime/web/{bindings,dispatch.g.dart}` reaches via `IcuKit.module.getProperty('X')` — same class name, same static/ctor/method names, same arg order. When the binding calls a static `createYmd(locale, length, …)`, the browser module's `DateFormatter` registers a `createYmd` taking those args in that order.
+- **The drift guard is the completeness radar.** `test/browser_engine/contract_guard_test.dart` (VM) derives the full class-name set from the binding source — direct `getProperty('X')` literals plus the two helper indirections (`_fromIntegerValue('X', …)`, `_jsEnum('X', …)`) — and asserts it equals the committed snapshot (`surface_snapshot.g.dart`). The chrome twin asserts the built module resolves every name. **If a binding adds a class the shim doesn't register, the guard fails** — it would otherwise be a silent browser crash (`getProperty` on an unregistered class).
+- **On a binding change that adds/renames a module class:** regenerate the snapshot (`fvm dart run tool/browser_engine/gen_surface_snapshot.dart`), update the two hardcoded counts in the guard tests, add the class to `kAllClasses` in `throwing.dart` (so it gets a throw-all default), then either implement it in the matching family file or leave it throw-all (a documented gap). If the binding adds a **new** indirection helper (not `_fromIntegerValue` / `_jsEnum`), extend the extractor's `_helperClassArg` pattern too, or the guard will miss the helper's literals. The extractor + generator live in `tool/browser_engine/` (dart:io tooling); the chrome guards reach the module through `test/browser_engine/module_probe.dart` (conditional loader; its web half is the one browser-only file, registered in the Makefile `test-guards` allowlist).
+- **Behavior is verified per family, not by the guard.** The guard only proves every class resolves; the `*_chrome_test.dart` suites prove each family formats correctly and that engine-gap methods raise `IcuUnsupportedError`. A class present only as a throw-all passes the guard yet is behaviorally a gap — the family test is what documents the real coverage.
+- **The suite runs on BOTH web compilers.** `make test-browser-engine` runs Chrome under `dart2js` AND `dart2wasm` (`-c chrome:dart2js -c chrome:dart2wasm`). The shim is pure `js_interop`, and a pattern can compile clean yet diverge at runtime between the two compilers (e.g. how a `Symbol` property key marshals). When a family uses a new interop shape, probe it under `dart2wasm` before relying on it — a green `dart2js` run alone proves nothing about the wasm build the package also ships.
+
 ## §6 — Cut a release
 
 The release pipeline is `.github/workflows/release.yml` (push + manual dispatch). It owns versions, tags, and publishing: it gates the two changelogs, compiles every release asset (26 native variants + both wasm variants), uploads them, and stamps their hashes into `lib/src/hook/asset_hashes.dart` on the tag. Your only authored input is the changelog entry — the comment block at the top of `CHANGELOG.pre.md` / `CHANGELOG.md` is the standard, including the VERSION SCHEME (0.x stables, per-version `-dev.N` prereleases).
 
 The pipeline has never run end to end — validating it IS the first release. See the launch-blocker row in [`CAPABILITY_ROADMAP.md`](CAPABILITY_ROADMAP.md) Table 4.
+
+### Branch model
+
+The two-lane branch model (`dev` prereleases, `prod` stable) and the
+squash-vs-merge-commit rule are the shared model. See
+whuppi/ci/docs/ARCHITECTURE.md "The versioned-release model + the
+stamping rule".
+
+### The rules
+
+- **NEVER push directly to `dev` or `prod`.** Every change goes through
+  a PR. No exceptions.
+- **NEVER force-push protected branches** unless syncing prod to dev
+  after a divergence (and only with the documented procedure below).
+- **NEVER run destructive git commands** (`reset --hard`, `clean -fd`,
+  `stash drop`, `gh pr close --delete-branch`) without explicit
+  permission.
+
+### The release pipeline
+
+The gate → discover → compile → upload → publish orchestration
+(changelog gate, version discovery, the approval-gate pause,
+`pub publish`, version-level concurrency, idempotent reruns) is the
+shared release engine. See whuppi/ci/docs/ARCHITECTURE.md "The release
+surface".
+
+What icu_kit's release adds on top:
+
+- **Native compile matrix** — the compile step checks out the tag and
+  builds all 6 target groups in parallel (26 native variants: every
+  target × bundled + lean CLDR, plus both wasm variants).
+- **Submodule deregistration** — at `--discover` the shared engine
+  de-registers the vendored submodule into the stamped tag: gitlink
+  dropped, `vendor/icu4x/.git` + `.gitmodules` removed, the vendor
+  tree force-added as regular tracked files, and `false_secrets:
+  /vendor/icu4x/**` stamped into pubspec for pub's secret scanner
+  (mechanism: whuppi/ci `release.sh`, `cmd_discover`). Both the tag
+  AND the pub tarball therefore carry raw ICU4X source — a pub.dev
+  install can compile from source or run `slice` even if every
+  GitHub release asset disappears. Same survivability model as
+  pdf_manipulator.
+- **Asset hashes into the tag** — after upload, `--update-tag-hashes`
+  writes the binary hashes back into the tag, so `git: ref: <tag>`
+  users get verified binary downloads.
+
+### Prerelease
+
+```
+1. Add ## X.Y.Z-dev.N at top of CHANGELOG.pre.md
+2. PR to dev → squash and merge
+3. (automatic) gate → discover → compile → upload
+4. (manual) approve "publish" environment → pub.dev
+```
+
+### Stable release
+
+```
+1. Add ## X.Y.Z at top of CHANGELOG.md
+2. PR to dev → squash and merge (dev ignores stable changelog — no release triggered)
+3. PR from dev → prod → create a merge commit (NOT squash, NOT rebase)
+4. (automatic) gate → discover → compile → upload
+5. (manual) approve "publish" environment → pub.dev
+```
+
+### Manual re-trigger
+
+```sh
+# Must use --ref to run on the correct branch
+gh workflow run "Release" --repo whuppi/icu_kit --ref dev --field branch=dev
+gh workflow run "Release" --repo whuppi/icu_kit --ref prod --field branch=prod
+```
+
+`--ref` controls which branch the workflow runs ON. `--field branch`
+is the input the script reads. Both must match. Without `--ref`, the
+workflow runs on the default branch regardless of the input.
+
+### Delete and recreate a release
+
+When a release needs to be rebuilt (broken binaries, missing assets):
+
+```sh
+gh release delete vX.Y.Z --repo whuppi/icu_kit --yes
+git push origin --delete refs/tags/vX.Y.Z
+gh workflow run "Release" --repo whuppi/icu_kit --ref <branch> --field branch=<branch>
+```
+
+### Syncing prod to dev (after divergence)
+
+If prod diverges from dev (e.g. an accidental squash merge on a
+promotion PR), force-sync it. Prod normally forbids force-push, so the
+procedure is **allow → sync → re-forbid** — steps 1 and 3 are the same
+protection-PUT call with only the final `allow_force_pushes` flag
+flipped (`true`, then `false`).
+
+```sh
+# Step 1 — allow force-push (allow_force_pushes=true):
+gh api repos/whuppi/icu_kit/branches/prod/protection -X PUT \
+  -F "required_status_checks[strict]=true" \
+  -F "required_status_checks[checks][][context]=checks / Conventional Commit" -F "required_status_checks[checks][][app_id]=15368" \
+  -F "required_status_checks[checks][][context]=Full Test Gate" -F "required_status_checks[checks][][app_id]=15368" \
+  -F "required_status_checks[checks][][context]=CI Gate" -F "required_status_checks[checks][][app_id]=15368" \
+  -F "required_pull_request_reviews[dismiss_stale_reviews]=true" \
+  -F "required_pull_request_reviews[require_code_owner_reviews]=true" \
+  -F "required_pull_request_reviews[required_approving_review_count]=2" \
+  -F "enforce_admins=false" -F "restrictions=null" -F "allow_force_pushes=true" \
+  --silent
+
+# Step 2 — force-sync:
+git push origin dev:prod --force-with-lease
+
+# Step 3 — re-forbid: rerun the Step 1 command with allow_force_pushes=false
+```
+
+### Failure recovery
+
+| Failure | Fix |
+|---|---|
+| Compile failed (infra) | Rerun via workflow_dispatch (idempotent) |
+| Compile failed (code bug) | Fix on dev via PR, bump prerelease version |
+| Upload failed | Rerun — clobber overwrites |
+| Publish failed | Rerun — approval gate shows again |
+| Tag exists but no Release | Rerun via workflow_dispatch |
+| Wrong release notes | Delete release + tag, re-trigger |
+
+---
+
+## Flutter version pinning
+
+`.fvmrc` (root + `example/.fvmrc` + `example_lean/.fvmrc`) is the single
+source of truth for the Flutter SDK version. Never hardcode the version
+anywhere else.
+
+`upgrade-check.yml` runs daily and splits the work by risk into two
+draft PRs. The `pins` job re-hashes the current pins to catch a repoint,
+then bumps every pinned version Dependabot can't see (the Flutter SDK,
+the binaryen + pana pins in `tool/versions.env`, sha256s recomputed from
+the upstream assets) onto `chore/pins`. The `lockfiles` job refreshes
+the lockfiles onto `chore/lockfiles`. Review, test, merge each when
+ready.
 
 ---
 
@@ -412,7 +595,7 @@ The pipeline has never run end to end — validating it IS the first release. Se
 
 ## Submodule patch inventory
 
-For each ICU4X release we maintain patches on `vendor/icu4x` branch `icu_kit/<icu-version>-patches`. The per-file table (what each patch exposes + its removal trigger) lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Local IDL patches"; the authoritative inventory is the markers themselves: `grep -rl "icu_kit patch" ffi/capi/` inside the vendor.
+For each ICU4X release we maintain patches on `vendor/icu4x` branch `icu_kit/<icu-version>-patches`. The per-file table (what each patch exposes + its removal trigger) lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Local IDL patches"; the authoritative inventory is the markers themselves: `grep -rl "icu_kit patch" ffi/capi/ components/` inside the vendor.
 
 When a removal trigger fires (each patch file's leading comment cites it), drop the patch and switch to the upstream binding. The dispatch generator picks up the new factories automatically; only the facade may need adjustment for any naming-shape change.
 

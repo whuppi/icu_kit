@@ -27,6 +27,7 @@ lib/
     errors/                  — sealed IcuError hierarchy
     facade/                  — 31 single-source facades (one file each,
                                written once, compiled for both platforms)
+                               + icu_number_parts.dart (shared formatToParts model)
     runtime/                 — THE platform boundary: every platform quirk
                                lives here, nothing platform-shaped outside it
       bindings.dart          — binding-surface selector (native ⇄ web)
@@ -45,7 +46,15 @@ lib/
         bindings.dart        — mirror barrel
         dispatch.g.dart      — generated mirror-typed dispatch twin
         flavor_probe.dart    — wasm compiled-data export probe
-        init.dart            — IcuKit (web loader: module import + probe)
+        init.dart            — IcuKit (web loader: module import + probe;
+                               init(webEngine:) branches to the browser Intl engine)
+      web_engine.dart        — the WebEngine { icu4x, browserIntl } enum, shared by
+                               both init.dart files (exported to users)
+      web_intl/              — the browser Intl engine (opt-in, zero download):
+                               a Dart-built module served off globalThis.Intl.
+                               DEFERRED-loaded by web/init.dart only when
+                               webEngine == browserIntl. One file per facade
+                               family + throwing.dart defaults
     hook/                    — resolver.dart (binary waterfall),
                                asset_hashes.dart (stamped per release),
                                marker_presets.dart (slice presets)
@@ -116,25 +125,30 @@ Backed by the `idna` Rust crate (servo/url, reqwest use the same). Not ICU4X. Lo
 
 ### Local IDL patches
 
-Where upstream's Diplomat IDL doesn't expose a feature we need, we add a local patch under `vendor/icu4x/ffi/capi/src/` on the submodule's `icu_kit/2.2.0-patches` branch. Each patch carries a removal trigger comment.
+Where upstream's Diplomat IDL doesn't expose a feature we need, we add a local patch under `vendor/icu4x/ffi/capi/src/` — and, for formatToParts, one patch under `vendor/icu4x/components/` — on the submodule's `icu_kit/2.2.0-patches` branch. Each patch carries a removal trigger comment.
 
 Why vendor at all: the Unicode Consortium's own `package:icu4x` ships the raw machine-generated bindings without the web packaging icu_kit needs, and icu_kit needs both worlds from one source. Vendoring + running Diplomat ourselves produces Dart AND JS bindings from one Rust source — the cost is this submodule and the build hook. The submodule pins a release tag, never a branch: a plural-rule update is a user-visible behavior change, so every ICU4X bump is an explicit, reviewable commit. When upstream ships web support, switching back is evaluated (the loss would be these IDL patches).
 
 | Patch | Exposes | Removal trigger |
 |---|---|---|
-| `currency_formatter.rs` | `CurrencyFormatter` + `LongCurrencyFormatter` + provider variants | Upstream PR #7789 lands the unified API |
-| `percent_formatter.rs` | `PercentFormatter` + provider variant | Same as currency |
-| `units_formatter.rs` | `UnitsFormatter` + provider variant | Same as currency |
+| `formatted_parts.rs` | `FormattedNumberParts` opaque + the parts collector/flatten; `format_to_parts` on decimal/currency/percent/units | Upstream icu_capi exposes a parts-over-FFI surface |
+| `currency_formatter.rs` | `CurrencyFormatter` + `LongCurrencyFormatter` + provider variants + `format_to_parts` | Upstream PR #7789 lands the unified API |
+| `percent_formatter.rs` | `PercentFormatter` + provider variant + `format_to_parts` | Same as currency |
+| `units_formatter.rs` | `UnitsFormatter` + provider variant + `format_to_parts` | Same as currency |
+| `decimal.rs` (edit) | `DecimalFormatter::format_to_parts` | Upstream exposes decimal parts over FFI |
+| `components/…/percent/format.rs` (edit) | `write_to_parts` on `FormattedPercent` (typed number + sign parts) | Upstream percent formatter emits typed parts |
 | `relative_time_formatter.rs` | `RelativeTimeFormatter` (24 width × unit ctors) + 24 provider variants | `icu_experimental::relativetime` promoted into stable `icu` |
 | `idna_processor.rs` | `IdnaProcessor` + UTS #46 / Punycode codec | Upstream icu_capi exposes IDNA directly |
 | `bidi.rs` (edit) | Paragraph embedding level + reordered levels (UCD BidiCharacterTest columns 2 + 3) | Upstream exposes the reordered-levels accessors |
-| `lib.rs` (edit) | Registers the five facade modules | Falls away with the last facade patch |
+| `lib.rs` (edit) | Registers the facade + formatted_parts modules | Falls away with the last facade patch |
 | `Cargo.toml` (edit) | `tinystr` + `idna` deps behind `experimental` | Falls away with its consumers |
 | `build.rs` (edit) | Android 16 KB page-size link args (Google Play API 35+) | Upstream sets the alignment itself |
 
-The authoritative inventory is the markers, not this table: `grep -rl "icu_kit patch" ffi/capi/` inside the vendor.
+The authoritative inventory is the markers, not this table: `grep -rl "icu_kit patch" ffi/capi/ components/` inside the vendor.
 
 All four patched formatters now expose `*WithProvider` factory variants, so lean-binary mode (`bundleCldrData: false`) works for every facade. `IdnaProcessor` is locale-data-free; no provider needed.
+
+**The formatToParts pipeline.** ICU4X emits typed parts internally through `writeable::PartsWrite` (nested ranges — a GROUP nested inside an INTEGER), but the capi has no parts-over-FFI surface. `formatted_parts.rs` collects those ranges with a `PartsWrite` sink, then **flattens** them to ECMA-402's flat tiling: split each INTEGER at its GROUP boundaries, and fill every untyped gap per formatter kind (the currency symbol / `%` / unit name become `currency` / `percentSign` / `unit`, edge whitespace becomes `literal`, interior whitespace stays inside the core so "US dollar" is one part). The result is exposed as an opaque list of `(typeString, substring)` — substrings, never byte offsets, because Dart strings are UTF-16. Only percent needed a component patch (it had no `write_to_parts` at all); currency and units already flow their number parts through pattern interpolation, so the gap-fill types their symbol/name. The Dart facade maps the wire type strings to `IcuNumberPartType` and assembles `List<IcuNumberPart>`; the browser-Intl engine uses `Intl.NumberFormat.prototype.formatToParts` directly (its type strings are already ECMA-402).
 
 ---
 
@@ -153,9 +167,10 @@ hook/build.dart
   ├─ Detects target Rust triple from CodeConfig.
   ├─ RESOLVES the binary via the 5-step waterfall (§7): hash-verified
   │    cache → hash-verified GitHub Release download → cargo compile
-  │    from vendor → submodule init → error. pub.dev consumers download;
-  │    git/path checkouts compile (`cargo rustc --crate-type=cdylib
-  │    --release`, + simple_logger).
+  │    from vendor → submodule init → error. Download is the fast path;
+  │    compile works anywhere with a Rust toolchain — the vendor ships
+  │    in the pub tarball (`cargo rustc --crate-type=cdylib --release`,
+  │    + simple_logger).
   └─ Registers the .dylib/.so/.dll/.a as a code asset under
      `package:icu_kit/src/runtime/native/bindings/lib.g.dart`. The Diplomat-generated
      @Native symbols inside the bindings library resolve to that asset.
@@ -200,6 +215,58 @@ lib/src/facade/*.dart (the same single-source facades as native)
 
 One facade source serves both platforms; only the binding layer under the
 seam differs. Tests run on both platforms.
+
+### 3c. Web, engine two (`globalThis.Intl`, zero download)
+
+The web dispatch layer never touches the WASM engine directly — it resolves
+every class off `IcuKit.module`, calls a static or constructor, and wraps the
+result. That indirection is a seam: anything that answers
+`getProperty('DateFormatter').createYmd(...)` the way the WASM module does can
+stand in for it. The browser Intl engine exploits this.
+
+```
+IcuKit.init(webEngine: WebEngine.browserIntl)   (native ignores webEngine)
+  ↓ web/init.dart, browser branch:
+  ├─ await browser_intl.loadLibrary() — DEFERRED import, so web_intl compiles
+  │    into a separate chunk loaded ONLY here. ICU4X-mode bundles never ship it.
+  ├─ buildBrowserIntlModule() — in web_intl/install.dart. Builds a plain JS
+  │    module (not the WASM module):
+  │      • registerThrowAllDefaults(module) — every facade class gets a Proxy
+  │        that raises IcuUnsupportedError on any access (the honest default).
+  │      • per-family registrars (locale/number/plural/list/relative/display/
+  │        collator/case/normalize/segment/datetime) OVERRIDE the classes the
+  │        browser can serve, building each over globalThis.Intl (ECMA-402).
+  └─ init sets IcuKit.module = that module (skips importModule),
+       hasCompiledData=true (skips the WASM probe), engine='browser-intl'.
+       The default BundledIcuData makes providerFor() return null → every
+       dispatch call takes its providerless path, which the shim implements.
+
+lib/src/facade/*.dart — the SAME facades, unchanged
+  ↓
+lib/src/runtime/web/dispatch.g.dart — the SAME dispatch twin, unchanged
+  └─ getProperty('DateFormatter').createYmd(...) now hits the Intl-backed
+     object instead of the WASM one.
+```
+
+Nothing under the facade knows which engine is loaded. What the browser can't
+do — bidi, Unicode properties, IDNA, line-break segmentation, case folding,
+and the calendar-arithmetic object — raises `IcuUnsupportedError` at the call,
+never a wrong answer. (Formatting dates in a non-Gregorian calendar is not in
+that list: it works via the `-u-ca-` locale extension, which `Intl` honors.)
+
+**The drift guard.** The browser module must register every class the web
+binding + dispatch reach, or an unregistered class is a silent crash. A VM
+test (`test/browser_engine/contract_guard_test.dart`) derives the required
+class set straight from the binding source — direct `getProperty('X')`
+literals plus two helper indirections (`_fromIntegerValue`, `_jsEnum`) — and
+asserts it equals a committed snapshot; a chrome twin asserts the built module
+resolves every name. Add a class to a binding and forget the shim, and the
+guard fails in CI. Per-family behavior (which options work, which raise) is
+proven by the `*_chrome_test.dart` suites, not the guard. See `UPDATING.md`
+§5c.
+
+One facade source now serves three web-visible engines (bundled WASM, lean
+WASM, browser Intl) plus native — all below the same seam.
 
 ---
 
@@ -336,7 +403,7 @@ The composite row pair is what lets one `init` call run unchanged on both flavor
 
 ## 7. The build hook
 
-`hook/build.dart` is the package's only build orchestrator. It resolves the native binary through the same 5-step waterfall pdf_manipulator uses (`lib/src/hook/resolver.dart`): hash-verified cache → hash-verified download from GitHub Releases → compile from vendor source → submodule init + compile → explanatory error. pub.dev consumers download (the vendored ICU4X source is far past the pub archive limit, so it's `.pubignore`d — unlike pdf_manipulator's vendor); git/path checkouts compile from source, where dev version `0.0.0` skips the download step so cargo's fingerprint check owns freshness.
+`hook/build.dart` is the package's only build orchestrator. It resolves the native binary through the same 5-step waterfall pdf_manipulator uses (`lib/src/hook/resolver.dart`): hash-verified cache → hash-verified download from GitHub Releases → compile from vendor source → submodule init + compile → explanatory error. pub.dev consumers download first (no Rust toolchain needed); the vendored ICU4X source ships in the pub tarball (same model as pdf_manipulator — see `.pubignore` for the measured size), so compile-from-vendor is a real fallback for them too. Git/path checkouts compile from source, where dev version `0.0.0` skips the download step so cargo's fingerprint check owns freshness.
 
 Per hook invocation it:
 
@@ -434,7 +501,145 @@ When a divergence is discovered, document it here and add a unit test that fails
 
 ---
 
-## 10. Where to look when X happens
+## 10. CI/CD architecture
+
+### Vocabulary
+
+| Term | Meaning | Example |
+|---|---|---|
+| **target** | What you build for | android, ios, macos, linux, windows, web |
+| **runner** | CI machine that runs the job (each workflow sets its own) | e.g. `ubuntu-24.04` |
+| **host** | Machine doing the building (CI or dev) | `Platform.isMacOS`, `uname` |
+| **capability** | One installable concern | fvm, rust, java, chrome, headless-display |
+| **build** | Compile for dev iteration | `make build-wasm` |
+| **compile** | Produce release binaries for upload | `make compile-macos` |
+| **verify** | Prove release build works (output thrown away) | `make verify-android` |
+| **test** | Run test suites | `make test`, `make test-lean` |
+| **release** | Publish a version (tag, upload, pub.dev) | `release.sh --discover` |
+
+"Platform" is not used internally. "Cross-platform" is kept in
+user-facing text (README, pubspec).
+
+### Principles
+
+1. **Makefile is the interface.** CI runs `make <target>`. All build
+   logic lives in Makefile and scripts. CI YAML has zero build logic.
+
+2. **Scripts handle their own deps.** Rust targets, the pinned nightly,
+   binaryen — provisioned by the script that needs them. `rustup target
+   add` and toolchain installs are always safe (user-space). binaryen is
+   a hash-verified download into a version-keyed cache
+   (`compile_rust.sh --wasm-opt`).
+
+3. **jq is the JSON tool for bash.** Bash reads `build.json` through the
+   jq-backed `json_get` (compile_rust.sh, analyze.sh); the build hook
+   reads it in Dart. One documented exception: analyze.sh's
+   warning-diff step uses a python3 heredoc — it runs only on the
+   analyze gate (ubuntu/macos runners), never in the release compile
+   path.
+
+4. **The capability model and the single `make-target` orchestrator are
+   the shared model.** See whuppi/ci/docs/ARCHITECTURE.md "make-target —
+   the orchestration contract".
+
+5. **Runners are configurable.** Every workflow resolves its runner in
+   one identical `inputs` job — `runs-on: ${{ needs.inputs.outputs.runner }}`
+   on every real job. Test/compile jobs add per-row matrix runners.
+
+6. **Matrix row is the manifest.** Each row declares which capabilities
+   to activate and which runner to use. Adding a new combo = one line.
+   Adding a new capability = one action + one input on `make-target` +
+   add to rows that need it.
+
+7. **Every job is named.** The YAML key is the code handle (terse,
+   lowercase, hyphen-free where used in `needs` expressions); `name:` is
+   the human label and is required on every job. Matrix jobs set
+   `name: <prefix>: ${{ matrix.name }}`.
+
+### Actions
+
+icu_kit carries three local capabilities under
+`.github/actions/capabilities/`:
+
+- **`rust/`** — Rust toolchain + sccache. Sets the icu4x submodule rev
+  the wasm and xcode caches key on.
+- **`wasm-cache/`** — caches WASM build output (both flavors).
+- **`wasm-build/`** — builds the WASM on a cache miss.
+
+The local `make-target` wrapper provisions these before delegating the
+generic run to whuppi/ci.
+
+### Workflows
+
+`ci.yml`, `full-test.yml`, `release.yml` are local workflows whose jobs
+call the local `make-target` wrapper (which delegates to whuppi/ci); the
+rest are thin callers to whuppi/ci reusable workflows.
+
+| Workflow | Trigger | Kind |
+|---|---|---|
+| `ci.yml` | PR to prod/dev | Local — jobs call `make-target` (→ whuppi/ci) |
+| `full-test.yml` | `ready-to-test` label or dispatch | Local — matrix jobs call `make-target` |
+| `release.yml` | Changelog push or dispatch | Local — compile matrix + `release-tool` |
+| `debug-ssh.yml` | Dispatch only | Local — uses shared `debug-ssh` action |
+| `pr-checks.yml` | PR to prod/dev | Thin caller → whuppi/ci reusable + the local pin-availability job |
+| `triage.yml` | Issues / fork PRs | Thin caller → whuppi/ci reusable (privileged) |
+| `retry.yml` | CI / Full Test completed | Thin caller → whuppi/ci reusable (privileged) |
+| `auto-close.yml` | Schedule / issues / comments | Thin caller → whuppi/ci reusable |
+| `labels.yml` | Label config push / dispatch | Thin caller → whuppi/ci reusable |
+| `upgrade-check.yml` | Daily / dispatch | Thin caller → whuppi/ci reusable + the local pins job |
+
+### Workflow security
+
+`triage` and `retry` are privileged (fork-triggerable write). The
+hardening lives once in the shared reusables. See
+whuppi/ci/docs/ARCHITECTURE.md "The repo guard".
+
+### Test matrix (full-test.yml)
+
+Single matrix with two tiers in one sorted list:
+
+- **Core rows** — one runner per target, proves the code works.
+- **Portability rows `[P]`** — extra runners, proves any dev machine can
+  build with this package.
+
+| Category | Core | Portability [P] |
+|---|---|---|
+| Package suites | VM + chrome (ubuntu) | chrome on macos + win |
+| Lean lanes | lean smoke, lean wasm, lean example journeys (ubuntu) | — |
+| Integration smokes | Android, iOS, Linux, macOS, Windows, Web | Android on macos-intel + win, Web on macos + win |
+| Verify (release builds) | Android (+16 KB alignment gate), iOS, Linux, macOS, Windows, Web, Lean Web | Android/Web/Lean-Web on extra hosts |
+
+### Build inputs — `build.json` vs `versions.env`
+
+Two files hold the project's pinned inputs, split by *what the value is*:
+
+- **`build.json`** — facts about the **subject** being built: the
+  vendored icu4x fork (`crate`, `repo`, `baseTag`), the pinned Rust
+  `nightlyToolchain` (matched against upstream's build.sh by
+  `make analyze`), the cargo `features` per flavor, the wasm outputs and
+  web asset maps. Read by `hook/build.dart` (jsonDecode) and by
+  `compile_rust.sh` / `analyze.sh` via the jq-backed `json_get`.
+- **`tool/versions.env`** — pinned versions + sha256 hashes of the
+  external **instruments**: binaryen (+ three per-platform sha256,
+  verified by `tool/fetch_verified.sh`) and the pana pin. Bot-owned —
+  auto-bumped by `tool/ci/upgrade.sh`.
+
+The rule: a fact about *what* is built belongs in `build.json`; a pinned
+version of an *external tool* that does the building belongs in
+`versions.env`.
+
+### Dependency ownership
+
+| Dep | Owner | CI behavior | Dev behavior |
+|---|---|---|---|
+| Rust targets + pinned nightly | `compile_rust.sh`, upstream `build.sh` | Auto-install (safe) | Auto-install (safe) |
+| binaryen (wasm-opt) | `compile_rust.sh --wasm-opt` | Hash-verified download → version-keyed cache | Same (fail-closed on hash mismatch) |
+| jq | `json_get` callers | Pre-installed on runners | Error with install hint |
+| build.json reads | `compile_rust.sh`, `analyze.sh`, hook | jq / jsonDecode | Same |
+
+---
+
+## 11. Where to look when X happens
 
 | Symptom | First place to look |
 |---|---|
@@ -447,6 +652,6 @@ When a divergence is discovered, document it here and add a unit test that fails
 
 ---
 
-## 11. The one-line summary
+## 12. The one-line summary
 
 > **Five layers, generator-driven dispatch, conditional-import facades, build hook + WASM tool. Every facade routes through dispatch — bundled, locale-restricted, lazy, composite all work without facade changes. IDL patches add what upstream doesn't expose; the generator absorbs the rest.**

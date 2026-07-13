@@ -32,6 +32,7 @@ final class IcuLocaleCanonicalizer {
             : dispatch.localeCanonicalizerDefault(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'LocaleCanonicalizer unavailable: $e',
         marker: 'LocaleCanonicalizer',
@@ -48,8 +49,9 @@ final class IcuLocaleCanonicalizer {
     final icu.Locale loc;
     try {
       loc = icu.Locale.fromString(tag);
-    } catch (_) {
-      throw IcuLocaleParseError(tag);
+    } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
+      throw IcuLocaleParseError(tag, cause: e);
     }
     _ffi.canonicalize(loc);
     return loc.asBcp47;

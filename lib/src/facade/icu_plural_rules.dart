@@ -66,6 +66,7 @@ final class IcuPluralRules {
       final rules = dispatch.pluralRulesCardinal(locale, parsed.ffi);
       return IcuPluralRules._(rules);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Cardinal plural rules unavailable for $locale: $e',
         locale: locale,
@@ -84,6 +85,7 @@ final class IcuPluralRules {
       final rules = dispatch.pluralRulesOrdinal(locale, parsed.ffi);
       return IcuPluralRules._(rules);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Ordinal plural rules unavailable for $locale: $e',
         locale: locale,

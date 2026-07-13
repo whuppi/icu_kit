@@ -110,6 +110,8 @@ export { LocaleFallbackerWithConfig } from "./LocaleFallbackerWithConfig.mjs"
 
 export { Decimal } from "./Decimal.mjs"
 
+export { FormattedNumberParts } from "./FormattedNumberParts.mjs"
+
 export { IanaParser } from "./IanaParser.mjs"
 
 export { IanaParserExtended } from "./IanaParserExtended.mjs"

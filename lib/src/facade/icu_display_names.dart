@@ -47,6 +47,7 @@ final class IcuRegionDisplayNames {
         dispatch.regionDisplayNamesDefault(locale, loc.ffi, options),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Region display names unavailable for $locale: $e',
         locale: locale,
@@ -114,6 +115,7 @@ final class IcuLocaleDisplayNames {
         dispatch.localeDisplayNamesFormatterDefault(locale, loc.ffi, options),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Locale display names unavailable for $locale: $e',
         locale: locale,

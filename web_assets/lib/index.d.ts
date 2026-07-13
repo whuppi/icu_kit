@@ -112,6 +112,8 @@ export { LocaleFallbackerWithConfig } from "./LocaleFallbackerWithConfig"
 
 export { Decimal } from "./Decimal"
 
+export { FormattedNumberParts } from "./FormattedNumberParts"
+
 export { IanaParser } from "./IanaParser"
 
 export { IanaParserExtended } from "./IanaParserExtended"

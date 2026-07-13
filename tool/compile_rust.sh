@@ -48,19 +48,80 @@ PKG_ROOT="$(dirname "$SCRIPT_DIR")"
 VENDOR="$PKG_ROOT/vendor/icu4x"
 MANIFEST="$VENDOR/ffi/capi/Cargo.toml"
 
-json_get() { python3 -c "import json,sys;print(json.load(open('$PKG_ROOT/build.json'))$1)"; }
+json_get() {  # jq path, e.g. '.features.native' — fails loud on a missing key
+  command -v jq >/dev/null 2>&1 || { echo "Error: jq not found (needed to read build.json)" >&2; exit 2; }
+  jq -er "$1" "$PKG_ROOT/build.json" 2>/dev/null || {
+    echo "Error: '$1' not found in $PKG_ROOT/build.json" >&2
+    exit 2
+  }
+}
 
-CRATE=$(json_get "['crate']")
-NIGHTLY=$(json_get "['nightlyToolchain']")
-NATIVE_FEATURES="$(json_get "['features']['native']"),simple_logger"
-LEAN_FEATURES="$(json_get "['features']['nativeLean']"),simple_logger"
+# shellcheck source=/dev/null  # runtime path; not followed at lint time
+source "$SCRIPT_DIR/versions.env"
+
+# Materialize the PINNED binaryen (wasm-opt) into a version-keyed cache and
+# print the wasm-opt path. The pinned release is the ONLY wasm-opt source
+# (no Flutter-SDK copy, no PATH fallback) so every build optimizes with the
+# same hash-verified binary. The cache dir is keyed by BINARYEN_VERSION, so
+# a pin bump structurally invalidates the old binary.
+# Print a path Dart's Process.run can exec. Git Bash's /c/... form is not a
+# real Windows path — CreateProcess can't resolve it — so emit mixed C:/...
+# there (bash executes that form fine too).
+_native_path() {
+  if command -v cygpath &>/dev/null; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
+}
+
+_install_binaryen() {
+  local exe="" asset sha url tmp
+  case "$(uname -s)" in
+    MINGW*|MSYS*) exe=".exe" ;;
+  esac
+  local dest_dir="${ICU_KIT_TOOL_CACHE:-$HOME/.cache/icu_kit}/binaryen/$BINARYEN_VERSION"
+  local wasm_opt="$dest_dir/bin/wasm-opt$exe"
+  if [ -x "$wasm_opt" ]; then _native_path "$wasm_opt"; return 0; fi
+
+  case "$(uname -s)" in
+    Linux*)  asset="binaryen-$BINARYEN_VERSION-x86_64-linux.tar.gz";   sha="$BINARYEN_SHA256_LINUX_X64" ;;
+    Darwin*) asset="binaryen-$BINARYEN_VERSION-arm64-macos.tar.gz";    sha="$BINARYEN_SHA256_MACOS_ARM64" ;;
+    MINGW*|MSYS*) asset="binaryen-$BINARYEN_VERSION-x86_64-windows.tar.gz"; sha="$BINARYEN_SHA256_WINDOWS_X64" ;;
+    *) echo "install binaryen: unsupported host $(uname -s)" >&2; return 1 ;;
+  esac
+  url="https://github.com/WebAssembly/binaryen/releases/download/$BINARYEN_VERSION/$asset"
+
+  echo "=== WASM: installing binaryen (wasm-opt) $BINARYEN_VERSION ===" >&2
+  tmp="${RUNNER_TEMP:-/tmp}"
+  # Convert a Windows temp path (D:\...) to Unix (/d/...) so tar doesn't read
+  # the colon as a remote host.
+  command -v cygpath &>/dev/null && tmp=$(cygpath -u "$tmp")
+  bash "$SCRIPT_DIR/fetch_verified.sh" "$url" "$sha" "$tmp/binaryen.tar.gz" >&2 \
+    || { echo "install binaryen: failed to fetch/verify $BINARYEN_VERSION" >&2; return 1; }
+  tar xzf "$tmp/binaryen.tar.gz" -C "$tmp"
+  mkdir -p "$dest_dir/bin" "$dest_dir/lib"
+  cp "$tmp/binaryen-$BINARYEN_VERSION/bin/wasm-opt"* "$dest_dir/bin/" \
+    || { echo "install binaryen: could not copy wasm-opt to $dest_dir/bin" >&2; return 1; }
+  # macOS/Linux builds link libbinaryen from ../lib relative to bin/.
+  cp "$tmp/binaryen-$BINARYEN_VERSION/lib/"* "$dest_dir/lib/" 2>/dev/null || true
+  rm -rf "$tmp/binaryen.tar.gz" "$tmp/binaryen-$BINARYEN_VERSION"
+  [ -x "$wasm_opt" ] || { echo "install binaryen: $wasm_opt missing after extract" >&2; return 1; }
+  _native_path "$wasm_opt"
+}
+
+CRATE=$(json_get '.crate')
+NIGHTLY=$(json_get '.nightlyToolchain')
+NATIVE_FEATURES="$(json_get '.features.native'),simple_logger"
+LEAN_FEATURES="$(json_get '.features.nativeLean'),simple_logger"
+
+if [ "${1:-}" = "--wasm-opt" ]; then
+  _install_binaryen
+  exit $?
+fi
 
 if [ "${1:-}" = "--features" ]; then
   case "${2:-native}" in
     native)    echo "$NATIVE_FEATURES" ;;
     lean)      echo "$LEAN_FEATURES" ;;
-    wasm)      json_get "['features']['wasm']" ;;
-    wasm-lean) json_get "['features']['wasmLean']" ;;
+    wasm)      json_get '.features.wasm' ;;
+    wasm-lean) json_get '.features.wasmLean' ;;
     *) echo "Usage: $0 --features [native|lean|wasm|wasm-lean]" >&2; exit 1 ;;
   esac
   exit 0
@@ -92,7 +153,13 @@ ensure_target() {
   local triple="$1" toolchain="${2:-}"
   local args=(target add "$triple")
   [ -n "$toolchain" ] && args+=(--toolchain "$toolchain")
-  rustup "${args[@]}" >/dev/null
+  # Add the target to the toolchain cargo will actually use. The cdylib
+  # build runs inside $VENDOR, where vendor/icu4x/rust-toolchain.toml pins
+  # the channel — so add the target there too (rustup honours that file),
+  # or the target lands on the default toolchain and cargo builds on the
+  # pinned one → "can't find crate for core". The staticlib path passes an
+  # explicit --toolchain, which overrides the file regardless of cwd.
+  ( cd "$VENDOR" && rustup "${args[@]}" >/dev/null )
 }
 
 ensure_nightly() {
@@ -113,6 +180,11 @@ ensure_nightly() {
 compile_one() {
   local target="$1" outdir="$2" libname="$3" cratetype="$4" features="$5"
   local out="${COMPILE_OUTPUT_DIR:-$PKG_ROOT/build_output}"
+  # cargo runs inside $VENDOR (a different cwd), so --emit link= must be an
+  # absolute path — a relative COMPILE_OUTPUT_DIR (CI sets `out`) would
+  # otherwise resolve against $VENDOR and the linker can't create the file.
+  # hook/build.dart already emits to an absolute path; this mirrors it.
+  case "$out" in /*) ;; *) out="$PKG_ROOT/$out" ;; esac
   local dest="$out/$outdir/$libname"
   local cargo_cmd=(cargo)
 
@@ -183,13 +255,16 @@ compile_android_target() {
     *) echo "ERROR: unsupported NDK host $(uname -s)" >&2; exit 1 ;;
   esac
   local bin="$ndk/toolchains/llvm/prebuilt/$host_tag/bin"
-  local clang_ext=""
-  case "$(uname -s)" in MINGW*|MSYS*) clang_ext=".cmd" ;; esac
+  # clang_ext: the per-API clang driver is a `.cmd` wrapper on Windows hosts.
+  # exe_ext: llvm-ar is a native `.exe` there — make it explicit so a tool that
+  # stats the archiver path (the cc crate) finds it, not the bare name.
+  local clang_ext="" exe_ext=""
+  case "$(uname -s)" in MINGW*|MSYS*) clang_ext=".cmd"; exe_ext=".exe" ;; esac
 
   local env_key
   env_key="CARGO_TARGET_$(echo "$target" | tr '[:lower:]-' '[:upper:]_')"
   export "${env_key}_LINKER=$bin/${ndk_prefix}21-clang$clang_ext"
-  export "${env_key}_AR=$bin/llvm-ar"
+  export "${env_key}_AR=$bin/llvm-ar$exe_ext"
 
   compile_variants "$target" "$key" "lib$CRATE.so" "cdylib"
 
@@ -310,16 +385,21 @@ do_native() {
 # ═══════════════════════════════════════════════════════════════════
 
 do_wasm() {
+  # DART is set by the caller (Makefile: `DART = fvm dart`); CI has no bare
+  # `dart` on PATH. Require it, no silent fallback — same as the other
+  # scripts (analyze.sh, platforms_gate.sh).
+  : "${DART:?compile_rust.sh wasm: DART must be set by the caller (e.g. fvm dart)}"
+
   # Resolve COMPILE_OUTPUT_DIR before anything else — the release
   # pipeline reads it; local builds land in web_assets/ only.
   local release_out="${COMPILE_OUTPUT_DIR:+$(cd "$PKG_ROOT" && mkdir -p "$COMPILE_OUTPUT_DIR/wasm" && cd "$COMPILE_OUTPUT_DIR/wasm" && pwd)}"
 
   echo "=== WASM (bundled CLDR): tool/build_wasm.dart ==="
-  ( cd "$PKG_ROOT" && dart run tool/build_wasm.dart )
+  ( cd "$PKG_ROOT" && $DART run tool/build_wasm.dart )
 
   echo ""
   echo "=== WASM (lean): tool/build_wasm.dart --lean ==="
-  ( cd "$PKG_ROOT" && dart run tool/build_wasm.dart --lean )
+  ( cd "$PKG_ROOT" && $DART run tool/build_wasm.dart --lean )
 
   echo ""
   echo "=== WASM summary ==="
@@ -346,7 +426,7 @@ case "$MODE" in
   native)   do_native ;;
   all)      do_native; do_wasm ;;
   *)
-    echo "Usage: $0 {macos|ios|linux|android|windows|wasm|native|all|--features [native|lean|wasm|wasm-lean]}"
+    echo "Usage: $0 {macos|ios|linux|android|windows|wasm|native|all|--features [native|lean|wasm|wasm-lean]|--wasm-opt}"
     exit 1
     ;;
 esac

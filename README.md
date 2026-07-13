@@ -250,7 +250,12 @@ print(IcuNumberFormat.decimal(locale: 'ja').format(1234567));     // "1,234,567"
 for (final part in IcuNumberFormat.decimal(locale: 'en-US').formatToParts(-1234.5)) {
   print('${part.type.name}: "${part.value}"');
 }
-// minusSign: "-" / integer: "1" / group: "," / integer: "234" / decimal: "." / fraction: "5"
+// minusSign: "-"
+// integer:   "1"
+// group:     ","
+// integer:   "234"
+// decimal:   "."
+// fraction:  "5"
 // Joining every part's value reproduces format() exactly. Works on every facade
 // (currency → a `currency` part, percent → `percentSign`, units → `unit`).
 ```

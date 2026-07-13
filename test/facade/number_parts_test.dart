@@ -23,6 +23,58 @@ void main() {
     await IcuKit.init();
   });
 
+  group('IcuNumberPart value equality', () {
+    test('identically-constructed parts are equal and hash equal', () {
+      const a = IcuNumberPart(
+        type: IcuNumberPartType.integer,
+        rawType: 'integer',
+        value: '42',
+      );
+      const b = IcuNumberPart(
+        type: IcuNumberPartType.integer,
+        rawType: 'integer',
+        value: '42',
+      );
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('any differing field breaks equality', () {
+      const base = IcuNumberPart(
+        type: IcuNumberPartType.integer,
+        rawType: 'integer',
+        value: '42',
+      );
+      expect(
+        base,
+        isNot(
+          const IcuNumberPart(
+            type: IcuNumberPartType.group,
+            rawType: 'group',
+            value: '42',
+          ),
+        ),
+      );
+      expect(
+        base,
+        isNot(
+          const IcuNumberPart(
+            type: IcuNumberPartType.integer,
+            rawType: 'integer',
+            value: '7',
+          ),
+        ),
+      );
+    });
+
+    test('a real part list round-trips through equals', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      final first = fmt.formatToParts(1234.5);
+      final second = fmt.formatToParts(1234.5);
+      expect(first, second);
+    });
+  });
+
   group('IcuNumberFormat.formatToParts (decimal)', () {
     test('en-US negative with grouping splits integer at the group', () {
       final fmt = IcuNumberFormat.decimal(locale: 'en-US');

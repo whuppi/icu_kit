@@ -27,6 +27,16 @@ final class IcuNumberPart {
   final String value;
 
   @override
+  bool operator ==(Object other) =>
+      other is IcuNumberPart &&
+      other.type == type &&
+      other.rawType == rawType &&
+      other.value == value;
+
+  @override
+  int get hashCode => Object.hash(type, rawType, value);
+
+  @override
   String toString() => 'IcuNumberPart($rawType: "$value")';
 }
 

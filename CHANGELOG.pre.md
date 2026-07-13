@@ -55,6 +55,15 @@ CONTENT RULES (never change)
     (or commit) link alone otherwise.
   • No capability inventories — "what's shipped" lives in README +
     docs/CAPABILITY_ROADMAP.md; the changelog says only what CHANGED.
+  • Engine/submodule bump → web re-fetch action (NEVER miss this). When a
+    release bumps the vendored engine submodule (vendor/icu4x), the web
+    WASM is rebuilt and consumers must re-fetch it, so ALWAYS add the
+    action bullet:
+      - Engine updated — web: re-run `flutter pub run icu_kit:setup --force web` (native updates itself)
+    Native self-updates via the build hook; only web needs the manual step.
+    When cutting a release, diff the submodule pointer against the previous
+    tag (`git ls-tree <prev-tag> vendor/icu4x`) so an engine bump never
+    ships without the bullet.
 
 VERSION SCHEME (icu_kit)
   The public line is 0.x STABLE releases (0.1.0, 0.2.0, …) — usable and

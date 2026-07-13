@@ -87,6 +87,7 @@ part 'DisplayNamesStyle.g.dart';
 part 'EastAsianWidth.g.dart';
 part 'EmojiSetData.g.dart';
 part 'ExemplarCharacters.g.dart';
+part 'FormattedNumberParts.g.dart';
 part 'GeneralCategory.g.dart';
 part 'GeneralCategoryGroup.g.dart';
 part 'GeneralCategoryNameToGroupMapper.g.dart';

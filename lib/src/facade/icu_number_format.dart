@@ -2,6 +2,7 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
+import 'icu_number_parts.dart';
 
 /// Locale-aware decimal formatting — STABLE.
 ///
@@ -68,6 +69,14 @@ final class IcuNumberFormat {
   String format(num value) {
     final decimal = _toDecimal(value);
     return _ffi.format(decimal);
+  }
+
+  /// Format [value] into typed parts (integer / group / decimal / fraction /
+  /// sign), mirroring ECMA-402 `Intl.NumberFormat.prototype.formatToParts`.
+  ///
+  /// Concatenating every part's `value` reproduces [format]'s output exactly.
+  List<IcuNumberPart> formatToParts(num value) {
+    return partsToList(_ffi.formatToParts(_toDecimal(value)));
   }
 }
 

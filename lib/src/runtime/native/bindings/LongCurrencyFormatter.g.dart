@@ -66,6 +66,14 @@ final class LongCurrencyFormatter implements ffi.Finalizable {
     return write.finalize();
   }
 
+  /// Format `value` into typed parts (ECMA-402 `formatToParts` shape):
+  /// the long currency name as a single `currency` part, the number as
+  /// integer / group / decimal / fraction.
+  FormattedNumberParts formatToParts(Decimal value) {
+    final result = _icu4x_LongCurrencyFormatter_format_to_parts_mv1(_ffi, value._ffi);
+    return FormattedNumberParts._fromFfi(result, []);
+  }
+
 }
 
 @_DiplomatFfiUse('icu4x_LongCurrencyFormatter_destroy_mv1')
@@ -87,5 +95,10 @@ external _ResultOpaqueInt32 _icu4x_LongCurrencyFormatter_create_for_currency_wit
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_format_mv1')
 // ignore: non_constant_identifier_names
 external void _icu4x_LongCurrencyFormatter_format_mv1(ffi.Pointer<ffi.Opaque> self, ffi.Pointer<ffi.Opaque> value, ffi.Pointer<ffi.Opaque> write);
+
+@_DiplomatFfiUse('icu4x_LongCurrencyFormatter_format_to_parts_mv1')
+@ffi.Native<ffi.Pointer<ffi.Opaque> Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_format_to_parts_mv1')
+// ignore: non_constant_identifier_names
+external ffi.Pointer<ffi.Opaque> _icu4x_LongCurrencyFormatter_format_to_parts_mv1(ffi.Pointer<ffi.Opaque> self, ffi.Pointer<ffi.Opaque> value);
 
 // dart format on

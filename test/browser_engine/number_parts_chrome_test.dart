@@ -102,6 +102,25 @@ void main() {
       tags: ['experimental_percent'],
     );
 
+    test(
+      'percent approximate display falls back to standard',
+      () {
+        // Intl has no approximately-sign display; the shim renders
+        // Standard (the roadmap's PARTIAL row for percent on this engine).
+        final fmt = IcuPercentFormat(
+          locale: 'en-US',
+          display: IcuPercentDisplay.approximate,
+        );
+        final parts = fmt.formatToParts(42);
+        final types = parts.map((p) => p.type);
+        expect(types, contains(IcuNumberPartType.percentSign));
+        expect(types, isNot(contains(IcuNumberPartType.approximatelySign)));
+        expect(fmt.format(42), isNot(contains('~')));
+        reconstructs(parts, fmt.format(42));
+      },
+      tags: ['experimental_percent'],
+    );
+
     test('percent prefix-% locale (tr) reconstructs', () {
       final fmt = IcuPercentFormat(locale: 'tr');
       final parts = fmt.formatToParts(42);

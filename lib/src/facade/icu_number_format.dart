@@ -85,6 +85,15 @@ final class IcuNumberFormat {
 icu.Decimal toDecimalFfi(num value) => _toDecimal(value);
 
 icu.Decimal _toDecimal(num value) {
+  // On the web, `is int` is true for any integer-VALUED double — including
+  // -0.0 and ±infinity (dart2js/dart2wasm number semantics). Route those
+  // through the double constructor so ICU4X applies one contract on every
+  // engine: sign preserved for -0.0, throw for non-finite. The int branch
+  // would silently drop the sign (-0.0) or coerce ±infinity to 0.
+  final d = value.toDouble();
+  if (!d.isFinite || (d == 0 && d.isNegative)) {
+    return icu.Decimal.fromDoubleWithRoundTripPrecision(d);
+  }
   if (value is int) return icu.Decimal.fromInt(value);
   return icu.Decimal.fromDoubleWithRoundTripPrecision(value as double);
 }

@@ -93,6 +93,64 @@ void main() {
         );
       }
     });
+
+    test('NaN and infinities throw, matching format()', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      // ICU4X's Decimal rejects non-finite doubles at construction; both
+      // entry points share the conversion, so both throw — never garbage
+      // parts. Type-agnostic: native throws DecimalLimitError, wasm
+      // surfaces the JS binding's error.
+      for (final v in [double.nan, double.infinity, double.negativeInfinity]) {
+        expect(() => fmt.format(v), throwsA(anything), reason: 'format($v)');
+        expect(
+          () => fmt.formatToParts(v),
+          throwsA(anything),
+          reason: 'formatToParts($v)',
+        );
+      }
+    });
+
+    test('negative zero keeps its typed minus sign', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      final parts = fmt.formatToParts(-0.0);
+      expect(pairs(parts), [
+        (IcuNumberPartType.minusSign, '-'),
+        (IcuNumberPartType.integer, '0'),
+      ]);
+      expectReconstructs(parts, fmt.format(-0.0));
+    });
+  });
+
+  group('IcuNumberPartType.fromRawType', () {
+    test('maps every known wire name to its enum value', () {
+      const known = {
+        'integer': IcuNumberPartType.integer,
+        'group': IcuNumberPartType.group,
+        'decimal': IcuNumberPartType.decimal,
+        'fraction': IcuNumberPartType.fraction,
+        'minusSign': IcuNumberPartType.minusSign,
+        'plusSign': IcuNumberPartType.plusSign,
+        'percentSign': IcuNumberPartType.percentSign,
+        'approximatelySign': IcuNumberPartType.approximatelySign,
+        'currency': IcuNumberPartType.currency,
+        'unit': IcuNumberPartType.unit,
+        'literal': IcuNumberPartType.literal,
+      };
+      known.forEach(
+        (raw, type) => expect(IcuNumberPartType.fromRawType(raw), type),
+      );
+    });
+
+    test('unrecognized wire names fall back to other', () {
+      // The escape hatch for part types a future engine reports that this
+      // version doesn't model — the wire name survives in rawType.
+      expect(
+        IcuNumberPartType.fromRawType('futureType'),
+        IcuNumberPartType.other,
+      );
+      // Matching is exact — wire names are case-sensitive.
+      expect(IcuNumberPartType.fromRawType('Integer'), IcuNumberPartType.other);
+    });
   });
 
   group('IcuCurrencyFormat.formatToParts', () {

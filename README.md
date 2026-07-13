@@ -171,8 +171,8 @@ Browser Intl mode covers the ECMA-402 core; what the browser can't do raises `Ic
 |---|:---:|:---:|---|
 | Locale (parse / canonicalize / maximize / RTL) | FULL | FULL | fallback chain is PARTIAL (single-step, no CLDR parent walk) |
 | Plural rules | FULL | PARTIAL | number-parsed operands lose explicit trailing zeros (`1.0`) |
-| Decimal numbers | FULL | FULL | string path preserves precision beyond `double` |
-| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100); units outside the ECMA-402 set (e.g. `furlong`) THROW |
+| Decimal numbers | FULL | FULL | string path preserves precision beyond `double`; `formatToParts` returns typed parts |
+| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100); units outside the ECMA-402 set (e.g. `furlong`) THROW; `formatToParts` supported — a compound unit (`km/h`) is one `unit` part (browsers split it) |
 | Date / Time / Date+Time | FULL | PARTIAL | `alignment` (column padding) has no `Intl` control; `-u-ca-` / `-u-nu-` / `-u-hc-` extensions work |
 | Zoned + standalone time zone | FULL | PARTIAL | `location` / `exemplarCity` styles THROW |
 | Lists | FULL | FULL | |
@@ -241,6 +241,17 @@ Decimal, currency, percent, and units. Each is a separate facade because they ha
 print(IcuNumberFormat.decimal(locale: 'en-US').format(1234.5));   // "1,234.5"
 print(IcuNumberFormat.decimal(locale: 'de').format(1234.5));      // "1.234,5"
 print(IcuNumberFormat.decimal(locale: 'ja').format(1234567));     // "1,234,567"
+```
+
+```dart
+// formatToParts — the typed pieces behind the string (ECMA-402 shape).
+// Style the currency symbol differently from the digits, right-to-left aware.
+for (final part in IcuNumberFormat.decimal(locale: 'en-US').formatToParts(-1234.5)) {
+  print('${part.type.name}: "${part.value}"');
+}
+// minusSign: "-" / integer: "1" / group: "," / integer: "234" / decimal: "." / fraction: "5"
+// Joining every part's value reproduces format() exactly. Works on every facade
+// (currency → a `currency` part, percent → `percentSign`, units → `unit`).
 ```
 
 ```dart

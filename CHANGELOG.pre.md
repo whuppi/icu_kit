@@ -87,7 +87,8 @@ First prerelease — full ECMA-402 / Unicode internationalization for Dart
 and Flutter on all six platforms.
 
 - **API:** one Dart API for number, currency, percent, and unit
-  formatting; plural rules; dates and times across 17 calendars; time
+  formatting (as strings or typed `formatToParts` parts); plural rules;
+  dates and times across 17 calendars; time
   zones; relative time; lists; collation; display names; segmentation;
   case mapping; normalization; bidi; Unicode properties; exemplar
   characters; and IDNA. No Flutter dependency.

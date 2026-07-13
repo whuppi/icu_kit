@@ -74,11 +74,14 @@ them diverges the mirror from upstream and breaks the clean rebase-on-tag in
 ### The marker discipline
 
 The in-file markers are the authoritative inventory of what we patch —
-never maintain a list by hand:
+never maintain a list by hand. Patches live under `ffi/capi/` (the
+Diplomat IDL surface) AND, since formatToParts, under `components/` (the
+one component patch: `dimension/percent/format.rs` adds `write_to_parts`
+so the percent formatter emits typed parts):
 
 ```sh
 cd vendor/icu4x
-grep -rl "icu_kit patch" ffi/capi/
+grep -rl "icu_kit patch" ffi/capi/ components/
 ```
 
 - **Hand-edits to existing upstream files** sit between paired
@@ -126,7 +129,8 @@ grep -rl "icu_kit patch" ffi/capi/
    ```sh
    git checkout icu_kit/<old-icu-version>-patches
    git rebase icu@<new-tag>
-   # Resolve any conflicts in ffi/capi/src/{currency,percent,units,relative_time,idna}_formatter.rs
+   # Resolve any conflicts in ffi/capi/src/{currency,percent,units,relative_time,idna}_formatter.rs,
+   # ffi/capi/src/{formatted_parts,decimal}.rs, and components/experimental/src/dimension/percent/format.rs
    git checkout -b icu_kit/<new-icu-version>-patches
    ```
 
@@ -155,7 +159,7 @@ grep -rl "icu_kit patch" ffi/capi/
 
    ```sh
    cd vendor/icu4x
-   for f in $(grep -rl "icu_kit patch" ffi/capi/); do
+   for f in $(grep -rl "icu_kit patch" ffi/capi/ components/); do
      count=$(git diff icu@OLD..icu@NEW -- "$f" | wc -l | tr -d ' ')
      [ "$count" -gt "0" ] && echo "RISK : $f ($count lines)" || echo "clean: $f"
    done
@@ -584,7 +588,7 @@ ready.
 
 ## Submodule patch inventory
 
-For each ICU4X release we maintain patches on `vendor/icu4x` branch `icu_kit/<icu-version>-patches`. The per-file table (what each patch exposes + its removal trigger) lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Local IDL patches"; the authoritative inventory is the markers themselves: `grep -rl "icu_kit patch" ffi/capi/` inside the vendor.
+For each ICU4X release we maintain patches on `vendor/icu4x` branch `icu_kit/<icu-version>-patches`. The per-file table (what each patch exposes + its removal trigger) lives in [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Local IDL patches"; the authoritative inventory is the markers themselves: `grep -rl "icu_kit patch" ffi/capi/ components/` inside the vendor.
 
 When a removal trigger fires (each patch file's leading comment cites it), drop the patch and switch to the upstream binding. The dispatch generator picks up the new factories automatically; only the facade may need adjustment for any naming-shape change.
 

@@ -255,13 +255,16 @@ compile_android_target() {
     *) echo "ERROR: unsupported NDK host $(uname -s)" >&2; exit 1 ;;
   esac
   local bin="$ndk/toolchains/llvm/prebuilt/$host_tag/bin"
-  local clang_ext=""
-  case "$(uname -s)" in MINGW*|MSYS*) clang_ext=".cmd" ;; esac
+  # clang_ext: the per-API clang driver is a `.cmd` wrapper on Windows hosts.
+  # exe_ext: llvm-ar is a native `.exe` there — make it explicit so a tool that
+  # stats the archiver path (the cc crate) finds it, not the bare name.
+  local clang_ext="" exe_ext=""
+  case "$(uname -s)" in MINGW*|MSYS*) clang_ext=".cmd"; exe_ext=".exe" ;; esac
 
   local env_key
   env_key="CARGO_TARGET_$(echo "$target" | tr '[:lower:]-' '[:upper:]_')"
   export "${env_key}_LINKER=$bin/${ndk_prefix}21-clang$clang_ext"
-  export "${env_key}_AR=$bin/llvm-ar"
+  export "${env_key}_AR=$bin/llvm-ar$exe_ext"
 
   compile_variants "$target" "$key" "lib$CRATE.so" "cdylib"
 

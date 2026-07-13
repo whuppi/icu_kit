@@ -402,13 +402,18 @@ Future<void> _compileIcuCapi(
       // link from a Windows host as well as Linux/macOS. Platform.isWindows
       // here is the BUILD host (which runs cargo), not the Android target.
       final clangExt = Platform.isWindows ? '.cmd' : '';
+      // llvm-ar is a native `llvm-ar.exe` on Windows; make the `.exe` explicit
+      // so a tool that stats the archiver path (the cc crate) finds it, rather
+      // than the extensionless name that only exists once CreateProcess appends
+      // `.exe` at spawn time.
+      final exeExt = Platform.isWindows ? '.exe' : '';
       final envKey =
           'CARGO_TARGET_${rustTarget.toUpperCase().replaceAll('-', '_')}';
       cargoEnv['${envKey}_LINKER'] = p.join(
         compilerDir,
         '${ndkTriple}21-clang$clangExt',
       );
-      cargoEnv['${envKey}_AR'] = p.join(compilerDir, 'llvm-ar');
+      cargoEnv['${envKey}_AR'] = p.join(compilerDir, 'llvm-ar$exeExt');
       _log.info('NDK linker: ${cargoEnv['${envKey}_LINKER']}');
     }
   }

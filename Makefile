@@ -316,7 +316,10 @@ LEAN_EXAMPLE_LOCALES := und,en,en-US,de,fr,hi,ja,ar,th,sv,tr,zh-Hant
 
 postcards-example-lean:
 	@echo "=== Slicing postcards for example_lean (markers=kit) ==="
-	@cd example_lean && $(DART) run icu_kit:slice \
+	@# example_lean is a Flutter app (integration_test etc.), so resolve + run
+	@# the slice tool through Flutter — bare `dart run` can't see the Flutter SDK
+	@# deps and fails pub resolution. Matches every other example_lean target.
+	@cd example_lean && $(FLUTTER) pub get && $(FLUTTER) pub run icu_kit:slice \
 		--locales=$(LEAN_EXAMPLE_LOCALES) --markers=kit --per-locale --out=assets/icu
 
 test-example-lean-matrix: postcards-example-lean

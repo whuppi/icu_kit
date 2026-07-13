@@ -820,7 +820,7 @@ On capabilities, icu_kit is a superset of the Dart alternatives: everything they
 
 **"What about ICU4C?"** The C++ classic — reasonable on servers where it's already installed. It's ~30 MB with data and doesn't compile cleanly to WebAssembly; ICU4X was designed for the client-side world icu_kit lives in.
 
-And if your app ships one language and formats nothing, use string constants — don't pay ~19 MB of CLDR for data you never read.
+And if your app ships one language and formats nothing, use string constants — don't add a formatting engine for data you never read.
 
 ---
 

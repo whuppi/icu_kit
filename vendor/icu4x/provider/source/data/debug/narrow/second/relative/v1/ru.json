@@ -1,0 +1,37 @@
+{
+  "relatives": {
+    "0": "сейчас"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " с"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " с"
+        }
+      ]
+    ]
+  }
+}

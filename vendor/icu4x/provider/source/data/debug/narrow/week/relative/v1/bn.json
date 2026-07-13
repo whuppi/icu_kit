@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "গত সপ্তাহ",
+    "0": "এই সপ্তাহ",
+    "1": "পরের সপ্তাহ"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " সপ্তাহ আগে"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " সপ্তাহে"
+        }
+      ]
+    ]
+  }
+}

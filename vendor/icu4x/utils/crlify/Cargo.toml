@@ -1,0 +1,23 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+[package]
+name = "crlify"
+version = "1.0.5"
+keywords = ["text-processing", "line-endings", "io", "crlf", "windows"]
+description = "A std::io::Write wrapper that replaces \n with \r\n on Windows."
+documentation = "https://docs.rs/litemap"
+
+authors.workspace = true
+edition.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version = "1.82"
+
+[package.metadata.workspaces]
+independent = true
+
+[lints]
+workspace = true

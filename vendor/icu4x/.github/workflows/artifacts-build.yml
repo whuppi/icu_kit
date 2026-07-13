@@ -1,0 +1,817 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+##### README #####
+#
+# The CI action in this file is used to build the artifacts on pushes to a repository containing
+# the ICU4X service account key. All steps are skipped unless the key is present.
+#
+# If you are a frequent contributor, you can add the key to your fork. The key is shared with
+# icu4x collaborators and can be viewed here:
+#
+# https://drive.google.com/file/d/1LHq_sUb5NgpfDrJBcp3EsJFiUmoDbj36/view
+#
+# To add the key, follow these steps:
+#
+# 1. Go to the secrets on your fork:
+#     - https://github.com/{USER}/icu4x/settings/secrets/actions
+# 2. Click "New repository secret" and enter the following information:
+#     - Name: ICU4X_GCP_SA_KEY
+#     - Value: The contents of the file linked above
+# 3. Click "Add secret"
+# 4. Re-run the latest "Artifacts Build" action on your fork to make sure it works:
+#     - https://github.com/{USER}/icu4x/actions/workflows/artifacts-build.yml
+
+name: Artifacts Build
+
+on:
+  push
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: "dev-infra-273822"
+  GCP_PR_BUCKET_ID: "icu4x-pr-artifacts"
+  GCP_MAIN_BUCKET_ID: "icu4x-main"
+
+jobs:
+  credentials:
+    name: "Check Credentials for jobs that need JSON credentials"
+    runs-on: "ubuntu-latest"
+    env:
+      ICU4X_GCP_SA_KEY: "${{ secrets.ICU4X_GCP_SA_KEY }}"
+    steps:
+    - name: "Check for credentials"
+      run: |
+        if [ -z "$ICU4X_GCP_SA_KEY" ]
+        then
+          echo "GCP key not found. Docs previews will not be uploaded. If you are a frequent contributor, you may add the key to your fork; for instructions, see 'artifacts-build.yml'"
+          exit 1;
+        fi
+
+  rust-docs:
+    name: "Rust docs"
+    needs: credentials
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main or forked repository (needs credentials)
+    - id: gcp-auth
+      if: github.ref != 'refs/heads/main' || github.repository != 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with JSON Credentials"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        credentials_json: '${{ secrets.ICU4X_GCP_SA_KEY }}'
+    - id: gcp-auth-main
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    - name: Build docs
+      run: >
+          cargo doc --workspace --release --all-features --no-deps --lib 
+          --exclude icu_benchmark_macros
+          --exclude icu_ffi_coverage
+          --exclude md-tests
+          --exclude databake-derive
+          --exclude yoke-derive
+          --exclude zerofrom-derive
+          --exclude zerovec-derive
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: rustdoc
+        path: target/doc
+
+    - name: Upload docs to Google Cloud Storage (non-main)
+      run: |
+        gsutil -m cp -r target/doc gs://${{ env.GCP_PR_BUCKET_ID }}/gha/${{ github.sha }}/rustdoc
+    
+    - name: Upload docs to Google Cloud Storage (main)
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      run: |
+        gsutil -m cp -r target/doc/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/rustdoc
+
+    - name: "⭐⭐⭐ Links to Uploaded Artifacts ⭐⭐⭐"
+      run: |
+        echo "📖 Rust docs"
+        echo "http://${{ env.GCP_PR_BUCKET_ID }}.storage.googleapis.com/gha/${{ github.sha }}/rustdoc/icu/index.html"
+
+  cpp-docs:
+    name: "C++ docs"
+    needs: credentials
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main or forked repository (needs credentials)
+    - id: gcp-auth
+      if: github.ref != 'refs/heads/main' || github.repository != 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with JSON Credentials"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        credentials_json: '${{ secrets.ICU4X_GCP_SA_KEY }}'
+    - id: gcp-auth-main
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    - name: Install doxygen-awesome
+      run: |
+        git clone --depth 1 https://github.com/jothepro/doxygen-awesome-css.git
+
+    - name: Build docs
+      uses: mattnotmitt/doxygen-action@411df0c62acb5b96b8a93d93a7bf4b753c47ea05 # v1.9.5
+      with:
+          doxyfile-path: 'tools/doxygen/config.doxy'
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      id: upload_artifact
+      with:
+        name: cppdoc
+        path: tools/doxygen/html
+        
+    - name: Upload docs to Google Cloud Storage (non-main)
+      run: |
+        gsutil -m cp -r tools/doxygen/html gs://${{ env.GCP_PR_BUCKET_ID }}/gha/${{ github.sha }}/cppdoc
+    
+    - name: Upload docs to Google Cloud Storage (main)
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      run: |
+        gsutil -m cp -r tools/doxygen/html/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/cppdoc
+
+    - name: "⭐⭐⭐ Links to Uploaded Artifacts ⭐⭐⭐"
+      run: |
+        echo "📖 C++ docs"
+        echo "http://${{ env.GCP_PR_BUCKET_ID }}.storage.googleapis.com/gha/${{ github.sha }}/cppdoc/index.html"
+        echo "Artifact URL is: ${{ steps.upload_artifact.outputs.artifact-url }}"
+
+  ts-docs:
+    name: "TypeScript docs"
+    needs: credentials
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main or forked repository (needs credentials)
+    - id: gcp-auth
+      if: github.ref != 'refs/heads/main' || github.repository != 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with JSON Credentials"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        credentials_json: '${{ secrets.ICU4X_GCP_SA_KEY }}'
+    - id: gcp-auth-main
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    - name: Build docs
+      run: |
+        npm install typedoc@0.26.5 --exact -g
+        cd ffi/npm
+        make lib/index.mjs
+        typedoc
+        cd ../..
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: tsdoc
+        path: ffi/npm/docs
+        
+    - name: Upload docs to Google Cloud Storage (non-main)
+      run: |
+        gsutil -m cp -r ffi/npm/docs gs://${{ env.GCP_PR_BUCKET_ID }}/gha/${{ github.sha }}/tsdoc
+    
+    - name: Upload docs to Google Cloud Storage (main)
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      run: |
+        gsutil -m cp -r ffi/npm/docs/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/tsdoc
+
+    - name: "⭐⭐⭐ Links to Uploaded Artifacts ⭐⭐⭐"
+      run: |
+        echo "📖 TypeScript docs"
+        echo "http://${{ env.GCP_PR_BUCKET_ID }}.storage.googleapis.com/gha/${{ github.sha }}/tsdoc/index.html"
+
+  dart-docs:
+    name: "Dart docs"
+    needs: credentials
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main or forked repository (needs credentials)
+    - id: gcp-auth
+      if: github.ref != 'refs/heads/main' || github.repository != 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with JSON Credentials"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        credentials_json: '${{ secrets.ICU4X_GCP_SA_KEY }}'
+    - id: gcp-auth-main
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    - name: Install Dart
+      uses: dart-lang/setup-dart@0a8a0fc875eb934c15d08629302413c671d3f672 # v1.6.5
+        
+    - name: Build docs
+      run: |
+        cd ffi/dart
+        dart pub get
+        dart doc
+        cd ../..
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: dartdoc
+        path: ffi/dart/doc/api
+
+    - name: Upload docs to Google Cloud Storage (non-main)
+      run: |
+        gsutil -m cp -r ffi/dart/doc/api gs://${{ env.GCP_PR_BUCKET_ID }}/gha/${{ github.sha }}/dartdoc
+    
+    - name: Upload docs to Google Cloud Storage (main)
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      run: |
+        gsutil -m cp -r ffi/dart/doc/api/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/dartdoc
+
+    - name: "⭐⭐⭐ Links to Uploaded Artifacts ⭐⭐⭐"
+      run: |
+        echo "📖 Dart docs"
+        echo "http://${{ env.GCP_PR_BUCKET_ID }}.storage.googleapis.com/gha/${{ github.sha }}/dartdoc/index.html"
+
+  kotlin-docs:
+    name: "Kotlin docs"
+    needs: credentials
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main or forked repository (needs credentials)
+    - id: gcp-auth
+      if: github.ref != 'refs/heads/main' || github.repository != 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with JSON Credentials"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        credentials_json: '${{ secrets.ICU4X_GCP_SA_KEY }}'
+    - id: gcp-auth-main
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+        
+    - name: Build docs
+      run: |
+        cd ffi/mvn
+        mvn dokka:dokka
+        cd ../..
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: kdoc
+        path: ffi/mvn/target/dokka
+
+    - name: Upload docs to Google Cloud Storage (non-main)
+      run: |
+        gsutil -m cp -r ffi/mvn/target/dokka gs://${{ env.GCP_PR_BUCKET_ID }}/gha/${{ github.sha }}/kdoc
+    
+    - name: Upload docs to Google Cloud Storage (main)
+      if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+      run: |
+        gsutil -m cp -r ffi/mvn/target/dokka/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/kdoc
+
+    - name: "⭐⭐⭐ Links to Uploaded Artifacts ⭐⭐⭐"
+      run: |
+        echo "📖 Kotlin docs"
+        echo "http://${{ env.GCP_PR_BUCKET_ID }}.storage.googleapis.com/gha/${{ github.sha }}/kdoc/index.html"
+
+  wasm-demo:
+    # This is too expensive to run on every push, so only run it on main.
+    if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+    name: WASM Demo
+    runs-on: "ubuntu-latest"
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main repository
+    - id: gcp-auth
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    - name: Init packages
+      run: |
+        npm -C ffi/npm ci
+        npm -C tools/web-demo ci
+
+    - name: Run Webpack
+      run: npm -C tools/web-demo run build
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: wasmdemo
+        path: tools/web-demo/public
+
+    - name: Upload wasm-demo bundle to Google Cloud Storage
+      run: |
+        gsutil -m cp -r tools/web-demo/public/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/wasm-demo
+
+    - name: "⭐⭐⭐ Links to Uploaded Artifacts ⭐⭐⭐"
+      run: |
+        echo "Wasm Demo Preview"
+        echo "https://storage.googleapis.com/${{ env.GCP_MAIN_BUCKET_ID }}/gha/wasm-demo/index.html"
+
+  bench-perf:
+    # This is too expensive to run on every push, so only run it on main.
+    # When running on a PR, comment this out and set the BASELINE variable below to the baseline commit.
+    if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - components/collections
+          - components/datetime
+          # - components/experimental
+          - components/locale_core
+          - components/locale
+          - components/plurals
+          - components/segmenter
+          - provider/blob
+          - utils/fixed_decimal
+          - utils/litemap
+          - utils/tinystr
+          - utils/writeable
+          - utils/zerotrie
+          - utils/zerovec
+    concurrency:
+      # Allow one run at a time to include the previous run's results
+      group: bench-perf-${{ matrix.component }}
+
+    # If you are modifying and debugging is required, don't be afraid to get
+    # messy in a personal fork, if no better way to do it.
+    # Example "debugging" workflow: https://github.com/echeran/icu4x/actions/runs/296714990
+
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main repository
+    - id: gcp-auth
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    # Cargo-make boilerplate
+    - name: Install cargo-make
+      uses: taiki-e/install-action@64e4e2f995104968c78bd697b253d55bf557af66 # v2.41.11
+      with:
+        tool: cargo-make@0.37.13
+
+    # Actual job
+
+    - name: Setup output data directory
+      run: |
+        mkdir -p benchmarks/perf/${{ matrix.component }}
+
+    - name: Run benchmark
+      shell: /usr/bin/bash -o pipefail -e {0}
+      run: |
+        cargo bench --manifest-path ${{ matrix.component }}/Cargo.toml --all-features -- --output-format bencher | tee benchmarks/perf/${{ matrix.component }}/output.txt;
+
+    - name:  Download previous benchmark data
+      run: |
+        gsutil -m cp -rn gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/benchmarks/perf/${{ matrix.component }}/* benchmarks/perf/${{ matrix.component }}
+
+    - name: Store benchmark result & create dashboard
+      uses: rhysd/github-action-benchmark@c3efd4d54319dbc90622069cc273cba59b46abbf # v1.15.0
+      with:
+        name: Rust Benchmark
+        tool: 'cargo'
+        output-file-path: ./benchmarks/perf/${{ matrix.component }}/output.txt
+        benchmark-data-dir-path: ./benchmarks/perf/${{ matrix.component }}
+        # Show alert with commit comment on detecting possible performance regression
+        alert-threshold: '200%'  # If for nothing else, enabling the possibility of alerts with meaningful thresholds requires this job to be done per-component
+        fail-on-alert: true
+        # comment-on-alert: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        gh-pages-branch: empty
+        # alert-comment-cc-users: '@sffc,@zbraniecki,@echeran'
+
+    - name: Upload new benchmark data
+      if: success() || failure()
+      run: |
+          git checkout empty
+          gsutil -m cp -r benchmarks/perf/${{ matrix.component }}/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/benchmarks/perf/${{ matrix.component }}
+
+  # Run examples with dhat-rs in order to collect memory heap size metrics. These
+  # metrics will then be charted over time. See tools/benchmark/memory/README.md for
+  # more information.
+
+  # dhat-rs:
+  #   https://github.com/nnethercote/dhat-rs
+  # Benchmarking action (forked):
+  #   https://github.com/gregtatum/github-action-benchmark
+  # The memory data is collected in:
+  #   benchmarks/memory/{os}/output.ndjson
+  # The full data report is stored in:
+  #   benchmarks/memory/{os}/{example}-dhat-heap.json
+
+  bench-memory:
+    # This is too expensive to run on every push, so only run it on main.
+    # When running on a PR, comment this out and set the BASELINE variable below to the baseline commit.
+    if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+    strategy:
+      fail-fast: false
+      # Create a matrix of all platforms, and all components. Each job then can run
+      # multiple examples in that job. The examples are defined as a space separated
+      # list of the name of the examples. The examples are assumed to be in the
+      # examples folder.
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    concurrency:
+      # Allow one run at a time to include the previous run's results
+      group: bench-memory-${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # gsutil needs Python 3.11 but macos-latest has 3.12
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    # GCP Boilerplate for jobs in main repository
+    - id: gcp-auth
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    # Cargo-make boilerplate
+    - name: Install cargo-make
+      uses: taiki-e/install-action@64e4e2f995104968c78bd697b253d55bf557af66 # v2.41.11
+      with:
+        tool: cargo-make@0.37.13
+
+    # Actual job
+
+    - name: Run the example with dhat-rs to collect memory information
+      run: |
+        cargo run --package icu_benchmark_memory -- --os ${{ matrix.os }}
+
+    - name:  Download previous benchmark data
+      run: |
+        gsutil -m cp -rn gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/benchmarks/memory/${{ matrix.os }}/* benchmarks/memory/${{ matrix.os }}
+
+    - name: Store benchmark result & create dashboard
+      # The gregtatum fork of rhysd/github-action-benchmark contains support for ndjson.
+      # If the PR gets merged, this can be switched back to the main project.
+      # https://github.com/rhysd/github-action-benchmark/pull/54
+      uses: gregtatum/github-action-benchmark@d3f06f738e9612988d575db23fae5ca0008d3d12
+      with:
+        name: Heap – ${{ matrix.os }}
+        # The ndjson tool is only supported by the gregtatum fork of github-action-benchmark.
+        tool: 'ndjson'
+        benchmark-data-dir-path: ./benchmarks/memory/${{ matrix.os }}
+        output-file-path: ./benchmarks/memory/${{ matrix.os }}/output.ndjson
+        alert-threshold: '200%'
+        fail-on-alert: true
+        # comment-on-alert: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        gh-pages-branch: empty
+        # alert-comment-cc-users: '@sffc,@zbraniecki,@echeran'
+
+    - name: Upload new benchmark data
+      if: success() || failure()
+      run: |
+          git checkout empty
+          # Delete intermediate files
+          rm benchmarks/memory/${{ matrix.os }}/*-dhat-heap.json
+          gsutil -m cp -r benchmarks/memory/${{ matrix.os }}/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/benchmarks/memory/${{ matrix.os }}
+
+  # Binary size benchmark: build and size wasm binaries; creates ndjson output data format
+  bench-binsize:
+    # This is too expensive to run on every push, so only run it on main.
+    # When running on a PR, comment this out and set the BASELINE variable below to the baseline commit.
+    if: github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x'
+    runs-on: ubuntu-latest
+    concurrency:
+      # Allow one run at a time to include the previous run's results
+      group: bench-binsize
+
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    # GCP Boilerplate for jobs in main repository
+    - id: gcp-auth
+      name: "Authenticate to Google Cloud with Workload Identity Provider"
+      uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+      with:
+        workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+        service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+    - name: "Set up Google Cloud SDK"
+      uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+
+    # Cargo-make boilerplate
+    - name: Install cargo-make
+      uses: taiki-e/install-action@64e4e2f995104968c78bd697b253d55bf557af66 # v2.41.11
+      with:
+        tool: cargo-make@0.37.13
+
+    # Job-specific dependencies
+    - name: Install npm tools
+      run: |
+        npm install -g wasm-opt@1.4.0 --exact
+    
+    # Actual job
+    - name: Build wasm executables
+      run: cargo make wasm-opt
+
+    - name: gzip wasm executables
+      run: |
+        cd wasmpkg/wasm-opt
+        gzip -k *+opt.wasm
+        cd ../..
+
+    - name: Setup output data directory
+      run: |
+        mkdir -p benchmarks/binsize/wasm
+        mkdir -p benchmarks/binsize/gz
+
+    - name: Measure size of executables (wasm)
+      shell: /usr/bin/bash -o pipefail -e {0}
+      run: |
+        cargo run --package icu_benchmark_binsize  -- wasmpkg/wasm-opt wasm | tee benchmarks/binsize/wasm/output.txt
+
+    - name: Measure size of executables (gz)
+      shell: /usr/bin/bash -o pipefail -e {0}
+      run: |
+        cargo run --package icu_benchmark_binsize  -- wasmpkg/wasm-opt gz | tee benchmarks/binsize/gz/output.txt
+
+    - name:  Download previous benchmark data
+      run: |
+        mkdir -p benchmarks/binsize
+        gsutil -m cp -rn gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/benchmarks/binsize/* benchmarks/binsize
+ 
+    - name: Store benchmark result & create dashboard (wasm)
+      # Use gregtatum special feature to process ndjson-formatted benchmark data
+      uses: gregtatum/github-action-benchmark@d3f06f738e9612988d575db23fae5ca0008d3d12
+      with:
+        tool: 'ndjson'
+        output-file-path: benchmarks/binsize/wasm/output.txt
+        benchmark-data-dir-path: ./benchmarks/binsize/wasm
+        # Tentative setting, optimized value to be determined
+        alert-threshold: '200%'
+        fail-on-alert: true
+        # comment-on-alert: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        gh-pages-branch: empty
+        # alert-comment-cc-users: '@gnrunge,@sffc,@zbraniecki,@echeran'
+
+    - name: Store benchmark result & create dashboard (gz)
+      if: success() || failure()
+      # Use gregtatum special feature to process ndjson-formatted benchmark data
+      uses: gregtatum/github-action-benchmark@d3f06f738e9612988d575db23fae5ca0008d3d12
+      with:
+        tool: 'ndjson'
+        output-file-path: benchmarks/binsize/gz/output.txt
+        benchmark-data-dir-path: ./benchmarks/binsize/gz
+        # Tentative setting, optimized value to be determined
+        alert-threshold: '200%'
+        fail-on-alert: true
+        # comment-on-alert: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        gh-pages-branch: empty
+        skip-fetch-gh-pages: true
+        # alert-comment-cc-users: '@gnrunge,@sffc,@zbraniecki,@echeran'
+
+    - name: Upload new benchmark data
+      if: success() || failure()
+      run: |
+          git checkout empty
+          gsutil -m cp -r benchmarks/binsize/* gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/benchmarks/binsize
+
+  ffi-libs:
+    if: github.ref_type == 'tag' && github.repository == 'unicode-org/icu4x'
+    name: Build FFI binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        compiletype: [ dynamic, static ]
+        include_data: [true, false]
+        exclude:
+          - compiletype: dynamic
+            include_data: false
+    runs-on: ${{ matrix.os }}
+    env:
+      FEATURES: ${{ matrix.include_data == true && 'default_components,experimental,unstable,buffer_provider,compiled_data' || 'default_components,experimental,unstable,buffer_provider' }}
+      FILENAME_SUFFIX: ${{ matrix.include_data == true && '-with_data' || '' }}
+
+    steps:
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+    - name: Install Rust toolchains
+      run: |
+        rustup toolchain install stable
+        rustup toolchain install nightly
+    
+    - name: Show the selected Rust toolchain
+      run: rustup show
+    
+    - name: Setup additional linkers
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-i686-linux-gnu
+        mkdir -p .cargo
+        echo "[target]" >> .cargo/config.toml
+        echo "aarch64-linux-android.linker=\"$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang\"" >> .cargo/config.toml
+        echo "armv7-linux-androideabi.linker=\"$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi30-clang\"" >> .cargo/config.toml
+        echo "i686-linux-android.linker=\"$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android30-clang\"" >> .cargo/config.toml
+        echo "x86_64-linux-android.linker=\"$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android30-clang\"" >> .cargo/config.toml
+        echo "riscv64-linux-android.linker=\"$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/riscv64-linux-android35-clang\"" >> .cargo/config.toml
+        echo "aarch64-unknown-linux-gnu.linker=\"aarch64-linux-gnu-gcc\"" >> .cargo/config.toml
+        echo "armv7-unknown-linux-gnueabihf.linker=\"arm-linux-gnueabihf-gcc\"" >> .cargo/config.toml
+        echo "riscv64gc-unknown-linux-gnu.linker=\"riscv64-linux-gnu-gcc\"" >> .cargo/config.toml
+        
+    - name: Build Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        mkdir bin
+
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--armv7-linux-androideabi" TARGET="armv7-linux-androideabi" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--aarch64-linux-android" TARGET="aarch64-linux-android" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--i686-linux-android" TARGET="i686-linux-android" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--x86_64-linux-android" TARGET="x86_64-linux-android" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--armv7-unknown-linux-gnueabihf" TARGET="armv7-unknown-linux-gnueabihf" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--aarch64-unknown-linux-gnu" TARGET="aarch64-unknown-linux-gnu" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--riscv64gc-unknown-linux-gnu" TARGET="riscv64gc-unknown-linux-gnu" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}--x86_64-unknown-linux-gnu" TARGET="x86_64-unknown-linux-gnu" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+
+    - name: Build Linux data
+      if: matrix.os == 'ubuntu-latest' && matrix.compiletype == 'static' && matrix.include_data == false
+      run: |
+        cd provider/icu4x-datagen # avoid global feature resolution
+        rustup target add aarch64-unknown-linux-gnu
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target aarch64-unknown-linux-gnu
+        rustup target add riscv64gc-unknown-linux-gnu
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target riscv64gc-unknown-linux-gnu
+        rustup target add x86_64-unknown-linux-gnu
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target x86_64-unknown-linux-gnu
+        cd ../..
+
+        cp target/aarch64-unknown-linux-gnu/release/icu4x-datagen bin/icu4x-datagen-aarch64-unknown-linux-gnu
+        cp target/riscv64gc-unknown-linux-gnu/release/icu4x-datagen bin/icu4x-datagen-riscv64gc-unknown-linux-gnu
+        cp target/x86_64-unknown-linux-gnu/release/icu4x-datagen bin/icu4x-datagen-x86_64-unknown-linux-gnu
+  
+    - name: Build Mac
+      if: matrix.os == 'macos-latest'
+      run: |
+        mkdir bin
+
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-aarch64-apple-ios" TARGET="aarch64-apple-ios" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-x86_64-apple-ios" TARGET="x86_64-apple-ios" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-aarch64-apple-darwin" TARGET="aarch64-apple-darwin" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-x86_64-apple-darwin" TARGET="x86_64-apple-darwin" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+
+    - name: Build Mac data
+      if: matrix.os == 'macos-latest' && matrix.compiletype == 'static' && matrix.include_data == false
+      run: |
+        cargo run -p icu4x-datagen -- --locales modern --markers all --format blob --out bin/full.postcard
+        
+        cd provider/icu4x-datagen # avoid global feature resolution
+        rustup target add aarch64-apple-darwin
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target aarch64-apple-darwin
+        rustup target add x86_64-apple-darwin
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target x86_64-apple-darwin
+        cd ../..
+
+        cp target/aarch64-apple-darwin/release/icu4x-datagen bin/icu4x-datagen-aarch64-apple-darwin
+        cp target/x86_64-apple-darwin/release/icu4x-datagen bin/icu4x-datagen-x86_64-apple-darwin
+  
+    - name: Build Windows
+      if: matrix.os == 'windows-latest'
+      shell: bash
+      run: |
+        mkdir bin
+        
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-aarch64-pc-windows-msvc" TARGET="aarch64-pc-windows-msvc" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-i686-pc-windows-msvc" TARGET="i686-pc-windows-msvc" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+        OUT="bin/icu4x-2-${{ matrix.compiletype }}${{ env.FILENAME_SUFFIX }}-x86_64-pc-windows-msvc" TARGET="x86_64-pc-windows-msvc" TYPE="${{ matrix.compiletype }}" bash ffi/capi/build.sh
+
+        rm -f bin/*{.dll.exp,.dll.lib,.pdb}
+
+    - name: Build Windows data
+      if: matrix.os == 'windows-latest' && matrix.compiletype == 'static' && matrix.include_data == false
+      run: |
+        cd provider/icu4x-datagen # avoid global feature resolution
+        rustup target add aarch64-pc-windows-msvc
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target aarch64-pc-windows-msvc
+        rustup target add x86_64-pc-windows-msvc
+        cargo build --release --bin icu4x-datagen --no-default-features --features blob_exporter,blob_input,rayon --target x86_64-pc-windows-msvc
+        cd ../..
+
+        cp target/aarch64-pc-windows-msvc/release/icu4x-datagen.exe bin/icu4x-datagen-aarch64-pc-windows-msvc.exe
+        cp target/x86_64-pc-windows-msvc/release/icu4x-datagen.exe bin/icu4x-datagen-x86_64-pc-windows-msvc-datagen.exe
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ffi-${{matrix.os}}-${{ matrix.compiletype }}${{ matrix.compiletype == 'static' && matrix.include_data == true && '-with_data' || '' }}-libs
+        path: bin
+        
+  release-ffi-libs:
+    needs: ffi-libs
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' && github.repository == 'unicode-org/icu4x'
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: ffi-*-libs
+
+      - name: Display structure of downloaded files
+        run: ls -R
+
+      - name: Release
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        with:
+          files: '**'
+          fail_on_unmatched_files: true
+          draft: true
+          body: "`icu_capi` artifacts based on ref ${{ github.ref_name }}"
+
+  gh-pages:
+    name: "Deploy to GitHub Pages"
+    needs: [rust-docs, cpp-docs, ts-docs, dart-docs, wasm-demo, bench-perf, bench-memory] # bench-binsize
+    # Run this even when one of the above jobs failed. This is so we can at least push the other artifacts.
+    if: (success() || failure()) && (github.ref == 'refs/heads/main' && github.repository == 'unicode-org/icu4x')
+    runs-on: 'ubuntu-latest'
+    concurrency:
+      group: "pages"
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      # GCP Boilerplate for jobs in main repository
+      - id: gcp-auth
+        name: "Authenticate to Google Cloud with Workload Identity Provider"
+        uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+        with:
+          workload_identity_provider: "projects/66042061814/locations/global/workloadIdentityPools/icu4x-gha-pool1/providers/icu4x-gha-provider1"
+          service_account: "icu4x-main@dev-infra-273822.iam.gserviceaccount.com"
+      - name: "Set up Google Cloud SDK"
+        uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+      - name: Download artifacts
+        run: |
+          mkdir website
+          gsutil -m cp -rn gs://${{ env.GCP_MAIN_BUCKET_ID }}/gha/* website || true
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: 'website'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+

@@ -1,0 +1,41 @@
+{
+  "relatives": {
+    "-2": "avant-hier",
+    "-1": "hier",
+    "0": "aujourd’hui",
+    "1": "demain",
+    "2": "après-demain"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "il y a "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " j"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dans "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " j"
+        }
+      ]
+    ]
+  }
+}

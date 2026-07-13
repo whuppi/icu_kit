@@ -1,5 +1,5 @@
 name: icu_kit
-version: 0.0.0
+version: 0.1.0-dev.0
 description: >-
   Internationalization for Flutter and Dart on Unicode's ICU4X. Numbers,
   dates, plurals, lists, collation, segmentation, bidi, IDNA — same
@@ -77,3 +77,5 @@ dev_dependencies:
 
   # Lint rules
   lints: ^6.1.0
+false_secrets:
+  - /vendor/icu4x/**

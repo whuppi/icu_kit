@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "yesterday",
+    "0": "today",
+    "1": "tomorrow"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": "d ago"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "in "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": "d"
+        }
+      ]
+    ]
+  }
+}

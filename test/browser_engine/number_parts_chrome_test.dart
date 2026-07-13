@@ -70,4 +70,38 @@ void main() {
       }
     });
   });
+
+  group('browser-Intl formatToParts — currency / percent / unit', () {
+    void reconstructs(List<IcuNumberPart> parts, String formatted) =>
+        expect(parts.map((p) => p.value).join(), formatted);
+
+    test('currency USD types the symbol + reconstructs', () {
+      final fmt = IcuCurrencyFormat.symbol(locale: 'en-US');
+      final parts = fmt.formatToParts(1234.56, currencyCode: 'USD');
+      expect(parts.map((p) => p.type), contains(IcuNumberPartType.currency));
+      reconstructs(parts, fmt.format(1234.56, currencyCode: 'USD'));
+    }, tags: ['experimental_currency']);
+
+    test('percent types the percent sign + reconstructs', () {
+      final fmt = IcuPercentFormat(locale: 'en-US');
+      final parts = fmt.formatToParts(42);
+      expect(parts.map((p) => p.type), contains(IcuNumberPartType.percentSign));
+      // Browser shim splices the affix around the number.
+      reconstructs(parts, fmt.format(42));
+    }, tags: ['experimental_percent']);
+
+    test('percent prefix-% locale (tr) reconstructs', () {
+      final fmt = IcuPercentFormat(locale: 'tr');
+      final parts = fmt.formatToParts(42);
+      expect(parts.map((p) => p.type), contains(IcuNumberPartType.percentSign));
+      reconstructs(parts, fmt.format(42));
+    }, tags: ['experimental_percent']);
+
+    test('unit types a unit part + reconstructs', () {
+      final fmt = IcuUnitFormat(locale: 'en-US', unit: 'meter');
+      final parts = fmt.formatToParts(5);
+      expect(parts.map((p) => p.type), contains(IcuNumberPartType.unit));
+      reconstructs(parts, fmt.format(5));
+    }, tags: ['experimental_unit']);
+  });
 }

@@ -180,6 +180,11 @@ ensure_nightly() {
 compile_one() {
   local target="$1" outdir="$2" libname="$3" cratetype="$4" features="$5"
   local out="${COMPILE_OUTPUT_DIR:-$PKG_ROOT/build_output}"
+  # cargo runs inside $VENDOR (a different cwd), so --emit link= must be an
+  # absolute path — a relative COMPILE_OUTPUT_DIR (CI sets `out`) would
+  # otherwise resolve against $VENDOR and the linker can't create the file.
+  # hook/build.dart already emits to an absolute path; this mirrors it.
+  case "$out" in /*) ;; *) out="$PKG_ROOT/$out" ;; esac
   local dest="$out/$outdir/$libname"
   local cargo_cmd=(cargo)
 

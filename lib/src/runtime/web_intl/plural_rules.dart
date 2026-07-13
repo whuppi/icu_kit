@@ -2,10 +2,11 @@
 //
 // DOCUMENTED GAP: plural operands are parsed as a JS number, so explicit
 // trailing fraction zeros ("1.0") lose their CLDR v/f operands — categories
-// may differ for locales whose rules depend on them. PARTIAL. When
-// Intl.PluralRules gains string/BigInt operand support (the operand-preserving
-// proposal, Stage 3), pass the raw operand string to select() instead of
-// double.parse to keep the v/f operands.
+// may differ for locales whose rules depend on them (select("1.0") yields
+// "one" here, should be "other"). PARTIAL. When Intl.PluralRules preserves
+// string operands (TC39 proposal-intl-keep-trailing-zeros), pass the raw
+// operand string to select() instead of double.parse. See the TODO at
+// categoryFor.
 library;
 
 import 'dart:js_interop';
@@ -36,6 +37,10 @@ JSObject _pluralRules(String tag, String type) {
   // categoryFor(operands) → {value: 'One'} (Diplomat's PascalCase).
   JSObject categoryFor(JSObject operands) {
     final s = operands.getProperty<JSString>('s'.toJS).toDart;
+    // TODO(keep-trailing-zeros): pass the raw string `s` to select() once
+    // Intl.PluralRules preserves string operands, to keep the v/f operands
+    // that double.parse drops (select("1.0") → "one" here, should be "other").
+    // https://github.com/tc39/proposal-intl-keep-trailing-zeros
     final cat = pr
         .callMethod<JSString>('select'.toJS, double.parse(s).toJS)
         .toDart;

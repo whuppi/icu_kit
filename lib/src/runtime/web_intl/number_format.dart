@@ -125,6 +125,10 @@ JSObject _longCurrencyFormatter(JSObject locale, JSString currencyCode) {
 // So format the plain number, then splice the locale's percent affix taken
 // from `formatToParts` — never pass value/100 through style:'percent'.
 
+// Resolve the locale's percent affix (the text before/after the number) ONCE,
+// at formatter construction — _percentFormatter captures the result in its
+// closure and reuses it for every format() call, so this probe formatter is
+// built once per formatter, never per value.
 (String, String) _percentAffix(String tag) {
   final parts = intlFormat(
     'NumberFormat',
@@ -187,15 +191,28 @@ String _unitDisplay(JSObject? width) {
 JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
   final tag = localeTag(locale);
   final display = _unitDisplay(width);
-  // Validate the unit at CREATION: Intl.NumberFormat throws RangeError for
-  // units outside the ECMA-402 sanctioned set (smaller than ICU4X's). Surface
-  // it as a typed IcuUnsupportedError here, where the facade wraps creation
-  // errors — not as a raw JS RangeError escaping the per-value format() call.
+  final base = <String, JSAny?>{
+    'style': 'unit'.toJS,
+    'unit': unitId,
+    'unitDisplay': display.toJS,
+  };
+  // Build the zero-fraction formatter at CREATION — it doubles as the unit
+  // validator (Intl.NumberFormat throws RangeError for a unit outside the
+  // ECMA-402 set, smaller than ICU4X's), surfaced as a typed
+  // IcuUnsupportedError here where the facade wraps creation errors, not as a
+  // raw RangeError escaping the per-value format() call. Reused for integer
+  // values (the common case, k == 0); only fractional inputs build a fresh
+  // formatter with pinned fraction digits.
+  final JSObject intFmt;
   try {
-    intlFormat(
+    intFmt = intlFormat(
       'NumberFormat',
       tag,
-      jsOptions({'style': 'unit'.toJS, 'unit': unitId}),
+      jsOptions({
+        ...base,
+        'minimumFractionDigits': 0.toJS,
+        'maximumFractionDigits': 0.toJS,
+      }),
     );
   } catch (_) {
     unsupported(
@@ -206,17 +223,18 @@ JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
     final k = _fractionDigits(s);
-    return _fmt(
-      tag,
-      jsOptions({
-        'style': 'unit'.toJS,
-        'unit': unitId,
-        'unitDisplay': display.toJS,
-        'minimumFractionDigits': k.toJS,
-        'maximumFractionDigits': k.toJS,
-      }),
-      s,
-    );
+    final fmt = k == 0
+        ? intFmt
+        : intlFormat(
+            'NumberFormat',
+            tag,
+            jsOptions({
+              ...base,
+              'minimumFractionDigits': k.toJS,
+              'maximumFractionDigits': k.toJS,
+            }),
+          );
+    return fmt.callMethod<JSString>('format'.toJS, s.toJS);
   }
 
   o.setProperty('format'.toJS, format.toJS);

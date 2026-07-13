@@ -191,9 +191,8 @@ JSObject _longCurrencyFormatter(JSObject locale, JSString currencyCode) {
 // number is formatted separately (icu4x renders the value as-is, not ×100), so
 // the affix is spliced around it; the typed parts carry through to
 // formatToParts and the joined strings give the flat `format` output.
-(List<(String, String)> before, List<(String, String)> after) _percentAffixParts(
-  String tag,
-) {
+(List<(String, String)> before, List<(String, String)> after)
+_percentAffixParts(String tag) {
   final parts = intlFormat(
     'NumberFormat',
     tag,

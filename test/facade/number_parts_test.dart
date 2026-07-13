@@ -7,8 +7,9 @@ import 'package:icu_kit/icu_kit.dart';
 import 'package:test/test.dart';
 
 /// `(type, value)` pairs for terse expects.
-List<(IcuNumberPartType, String)> pairs(List<IcuNumberPart> parts) =>
-    [for (final p in parts) (p.type, p.value)];
+List<(IcuNumberPartType, String)> pairs(List<IcuNumberPart> parts) => [
+  for (final p in parts) (p.type, p.value),
+];
 
 /// The reconstruction invariant: concatenating every part's value == format().
 void expectReconstructs(List<IcuNumberPart> parts, String formatted) {
@@ -43,8 +44,9 @@ void main() {
       final fmt = IcuNumberFormat.decimal(locale: 'de');
       final parts = fmt.formatToParts(1234.5);
       final group = parts.firstWhere((p) => p.type == IcuNumberPartType.group);
-      final decimal =
-          parts.firstWhere((p) => p.type == IcuNumberPartType.decimal);
+      final decimal = parts.firstWhere(
+        (p) => p.type == IcuNumberPartType.decimal,
+      );
       expect(group.value, '.');
       expect(decimal.value, ',');
       expectReconstructs(parts, fmt.format(1234.5));
@@ -84,8 +86,11 @@ void main() {
     test('every part maps to a known type (no "other" for decimal)', () {
       final fmt = IcuNumberFormat.decimal(locale: 'en-US');
       for (final p in fmt.formatToParts(-1234567.891)) {
-        expect(p.type, isNot(IcuNumberPartType.other),
-            reason: 'unmapped rawType "${p.rawType}"');
+        expect(
+          p.type,
+          isNot(IcuNumberPartType.other),
+          reason: 'unmapped rawType "${p.rawType}"',
+        );
       }
     });
   });
@@ -94,43 +99,59 @@ void main() {
     test('USD en-US types the symbol as currency', () {
       final fmt = IcuCurrencyFormat.symbol(locale: 'en-US');
       final parts = fmt.formatToParts(1234.56, currencyCode: 'USD');
-      final currency =
-          parts.firstWhere((p) => p.type == IcuNumberPartType.currency);
+      final currency = parts.firstWhere(
+        (p) => p.type == IcuNumberPartType.currency,
+      );
       expect(currency.value, '\$');
       final types = parts.map((p) => p.type).toSet();
-      expect(types, containsAll([
-        IcuNumberPartType.currency,
-        IcuNumberPartType.integer,
-        IcuNumberPartType.group,
-        IcuNumberPartType.decimal,
-        IcuNumberPartType.fraction,
-      ]));
+      expect(
+        types,
+        containsAll([
+          IcuNumberPartType.currency,
+          IcuNumberPartType.integer,
+          IcuNumberPartType.group,
+          IcuNumberPartType.decimal,
+          IcuNumberPartType.fraction,
+        ]),
+      );
       expectReconstructs(parts, fmt.format(1234.56, currencyCode: 'USD'));
     }, tags: ['experimental_currency']);
 
-    test('JPY (0-fraction) has no decimal or fraction parts', () {
-      final fmt = IcuCurrencyFormat.symbol(locale: 'en-US');
-      final parts = fmt.formatToParts(1234, currencyCode: 'JPY');
-      final types = parts.map((p) => p.type).toSet();
-      expect(types, contains(IcuNumberPartType.currency));
-      expect(types, isNot(contains(IcuNumberPartType.decimal)));
-      expect(types, isNot(contains(IcuNumberPartType.fraction)));
-      expectReconstructs(parts, fmt.format(1234, currencyCode: 'JPY'));
-    }, tags: ['experimental_currency']);
+    test(
+      'JPY (0-fraction) has no decimal or fraction parts',
+      () {
+        final fmt = IcuCurrencyFormat.symbol(locale: 'en-US');
+        final parts = fmt.formatToParts(1234, currencyCode: 'JPY');
+        final types = parts.map((p) => p.type).toSet();
+        expect(types, contains(IcuNumberPartType.currency));
+        expect(types, isNot(contains(IcuNumberPartType.decimal)));
+        expect(types, isNot(contains(IcuNumberPartType.fraction)));
+        expectReconstructs(parts, fmt.format(1234, currencyCode: 'JPY'));
+      },
+      tags: ['experimental_currency'],
+    );
 
-    test('long form: the name is one currency part with interior spaces', () {
-      final fmt = IcuCurrencyFormat.long(locale: 'en-US', currencyCode: 'USD');
-      final parts = fmt.formatToParts(1);
-      final currency =
-          parts.firstWhere((p) => p.type == IcuNumberPartType.currency);
-      // "US dollar" is a SINGLE currency part (interior space kept).
-      expect(currency.value.toLowerCase(), contains('dollar'));
-      expect(
-        parts.where((p) => p.type == IcuNumberPartType.currency).length,
-        1,
-      );
-      expectReconstructs(parts, fmt.format(1));
-    }, tags: ['experimental_currency']);
+    test(
+      'long form: the name is one currency part with interior spaces',
+      () {
+        final fmt = IcuCurrencyFormat.long(
+          locale: 'en-US',
+          currencyCode: 'USD',
+        );
+        final parts = fmt.formatToParts(1);
+        final currency = parts.firstWhere(
+          (p) => p.type == IcuNumberPartType.currency,
+        );
+        // "US dollar" is a SINGLE currency part (interior space kept).
+        expect(currency.value.toLowerCase(), contains('dollar'));
+        expect(
+          parts.where((p) => p.type == IcuNumberPartType.currency).length,
+          1,
+        );
+        expectReconstructs(parts, fmt.format(1));
+      },
+      tags: ['experimental_currency'],
+    );
   });
 
   group('IcuPercentFormat.formatToParts', () {
@@ -140,8 +161,9 @@ void main() {
       final types = parts.map((p) => p.type).toList();
       expect(types, contains(IcuNumberPartType.integer));
       expect(types, contains(IcuNumberPartType.percentSign));
-      final pct =
-          parts.firstWhere((p) => p.type == IcuNumberPartType.percentSign);
+      final pct = parts.firstWhere(
+        (p) => p.type == IcuNumberPartType.percentSign,
+      );
       expect(pct.value, '%');
       expectReconstructs(parts, fmt.format(42));
     }, tags: ['experimental_percent']);
@@ -163,18 +185,22 @@ void main() {
       expectReconstructs(parts, fmt.format(42));
     }, tags: ['experimental_percent']);
 
-    test('approximate display types the approximately sign', () {
-      final fmt = IcuPercentFormat(
-        locale: 'en-US',
-        display: IcuPercentDisplay.approximate,
-      );
-      final parts = fmt.formatToParts(42);
-      expect(
-        parts.map((p) => p.type),
-        contains(IcuNumberPartType.approximatelySign),
-      );
-      expectReconstructs(parts, fmt.format(42));
-    }, tags: ['experimental_percent']);
+    test(
+      'approximate display types the approximately sign',
+      () {
+        final fmt = IcuPercentFormat(
+          locale: 'en-US',
+          display: IcuPercentDisplay.approximate,
+        );
+        final parts = fmt.formatToParts(42);
+        expect(
+          parts.map((p) => p.type),
+          contains(IcuNumberPartType.approximatelySign),
+        );
+        expectReconstructs(parts, fmt.format(42));
+      },
+      tags: ['experimental_percent'],
+    );
   });
 
   group('IcuUnitFormat.formatToParts', () {
@@ -187,10 +213,14 @@ void main() {
       expectReconstructs(parts, fmt.format(5));
     }, tags: ['experimental_unit']);
 
-    test('reconstruction holds with a grouped fractional value', () {
-      final fmt = IcuUnitFormat(locale: 'en-US', unit: 'meter');
-      final parts = fmt.formatToParts(12345.67);
-      expectReconstructs(parts, fmt.format(12345.67));
-    }, tags: ['experimental_unit']);
+    test(
+      'reconstruction holds with a grouped fractional value',
+      () {
+        final fmt = IcuUnitFormat(locale: 'en-US', unit: 'meter');
+        final parts = fmt.formatToParts(12345.67);
+        expectReconstructs(parts, fmt.format(12345.67));
+      },
+      tags: ['experimental_unit'],
+    );
   });
 }

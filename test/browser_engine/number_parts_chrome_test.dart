@@ -26,8 +26,9 @@ void main() {
       expect(types, contains(IcuNumberPartType.fraction));
       // Stable en-US separators.
       final group = parts.firstWhere((p) => p.type == IcuNumberPartType.group);
-      final decimal =
-          parts.firstWhere((p) => p.type == IcuNumberPartType.decimal);
+      final decimal = parts.firstWhere(
+        (p) => p.type == IcuNumberPartType.decimal,
+      );
       expect(group.value, ',');
       expect(decimal.value, '.');
     });
@@ -36,14 +37,11 @@ void main() {
       final fmt = IcuNumberFormat.decimal(locale: 'en-US');
       final parts = fmt.formatToParts(1234);
       final typesInOrder = parts.map((p) => p.type).toList();
-      expect(
-        typesInOrder,
-        [
-          IcuNumberPartType.integer,
-          IcuNumberPartType.group,
-          IcuNumberPartType.integer,
-        ],
-      );
+      expect(typesInOrder, [
+        IcuNumberPartType.integer,
+        IcuNumberPartType.group,
+        IcuNumberPartType.integer,
+      ]);
     });
 
     test('reconstruction invariant over a value × locale matrix', () {
@@ -65,8 +63,11 @@ void main() {
     test('every part maps to a known type (no "other")', () {
       final fmt = IcuNumberFormat.decimal(locale: 'en-US');
       for (final p in fmt.formatToParts(-1234567.891)) {
-        expect(p.type, isNot(IcuNumberPartType.other),
-            reason: 'unmapped rawType "${p.rawType}"');
+        expect(
+          p.type,
+          isNot(IcuNumberPartType.other),
+          reason: 'unmapped rawType "${p.rawType}"',
+        );
       }
     });
   });
@@ -75,20 +76,31 @@ void main() {
     void reconstructs(List<IcuNumberPart> parts, String formatted) =>
         expect(parts.map((p) => p.value).join(), formatted);
 
-    test('currency USD types the symbol + reconstructs', () {
-      final fmt = IcuCurrencyFormat.symbol(locale: 'en-US');
-      final parts = fmt.formatToParts(1234.56, currencyCode: 'USD');
-      expect(parts.map((p) => p.type), contains(IcuNumberPartType.currency));
-      reconstructs(parts, fmt.format(1234.56, currencyCode: 'USD'));
-    }, tags: ['experimental_currency']);
+    test(
+      'currency USD types the symbol + reconstructs',
+      () {
+        final fmt = IcuCurrencyFormat.symbol(locale: 'en-US');
+        final parts = fmt.formatToParts(1234.56, currencyCode: 'USD');
+        expect(parts.map((p) => p.type), contains(IcuNumberPartType.currency));
+        reconstructs(parts, fmt.format(1234.56, currencyCode: 'USD'));
+      },
+      tags: ['experimental_currency'],
+    );
 
-    test('percent types the percent sign + reconstructs', () {
-      final fmt = IcuPercentFormat(locale: 'en-US');
-      final parts = fmt.formatToParts(42);
-      expect(parts.map((p) => p.type), contains(IcuNumberPartType.percentSign));
-      // Browser shim splices the affix around the number.
-      reconstructs(parts, fmt.format(42));
-    }, tags: ['experimental_percent']);
+    test(
+      'percent types the percent sign + reconstructs',
+      () {
+        final fmt = IcuPercentFormat(locale: 'en-US');
+        final parts = fmt.formatToParts(42);
+        expect(
+          parts.map((p) => p.type),
+          contains(IcuNumberPartType.percentSign),
+        );
+        // Browser shim splices the affix around the number.
+        reconstructs(parts, fmt.format(42));
+      },
+      tags: ['experimental_percent'],
+    );
 
     test('percent prefix-% locale (tr) reconstructs', () {
       final fmt = IcuPercentFormat(locale: 'tr');

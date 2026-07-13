@@ -28,8 +28,7 @@ extension type FormattedNumberParts._(JSObject _self) implements JSObject {
       FormattedNumberParts._;
 
   /// The number of parts.
-  int get partCount =>
-      _self.getProperty<JSNumber>('partCount'.toJS).toDartInt;
+  int get partCount => _self.getProperty<JSNumber>('partCount'.toJS).toDartInt;
 
   /// The ECMA-402 type name of the part at [index], or null out of bounds.
   String? partTypeAt(int index) =>

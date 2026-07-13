@@ -97,11 +97,13 @@ List<IcuNumberPart> partsToList(icu.FormattedNumberParts ffi) {
     // In-bounds by construction, so the accessors never return null.
     final rawType = ffi.partTypeAt(i)!;
     final value = ffi.partValueAt(i)!;
-    parts.add(IcuNumberPart(
-      type: IcuNumberPartType.fromRawType(rawType),
-      rawType: rawType,
-      value: value,
-    ));
+    parts.add(
+      IcuNumberPart(
+        type: IcuNumberPartType.fromRawType(rawType),
+        rawType: rawType,
+        value: value,
+      ),
+    );
   }
   return parts;
 }

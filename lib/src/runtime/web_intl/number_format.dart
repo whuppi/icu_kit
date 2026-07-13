@@ -39,27 +39,70 @@ JSString _fmt(String tag, JSObject options, String s) => intlFormat(
   options,
 ).callMethod<JSString>('format'.toJS, s.toJS);
 
+// Wrap an `Intl.NumberFormat.formatToParts` result (a JS array of
+// `{type, value}`) in the shape the FormattedNumberParts web mirror reads:
+// a `partCount` property plus `partTypeAt(i)` / `partValueAt(i)` methods.
+// Intl already emits ECMA-402 type strings, so they pass through verbatim.
+// Shared by every number formatter in this shim.
+JSObject _wrapIntlParts(JSArray<JSObject> parts) {
+  final list = parts.toDart;
+  final o = JSObject()..setProperty('partCount'.toJS, list.length.toJS);
+  JSString? typeAt(JSNumber index) {
+    final i = index.toDartInt;
+    return (i >= 0 && i < list.length)
+        ? list[i].getProperty<JSString>('type'.toJS)
+        : null;
+  }
+
+  JSString? valueAt(JSNumber index) {
+    final i = index.toDartInt;
+    return (i >= 0 && i < list.length)
+        ? list[i].getProperty<JSString>('value'.toJS)
+        : null;
+  }
+
+  o.setProperty('partTypeAt'.toJS, typeAt.toJS);
+  o.setProperty('partValueAt'.toJS, valueAt.toJS);
+  return o;
+}
+
+/// Build an `Intl.NumberFormat` with [options] and return `formatToParts(s)`
+/// wrapped for the mirror.
+JSObject _fmtParts(String tag, JSObject options, String s) => _wrapIntlParts(
+  intlFormat(
+    'NumberFormat',
+    tag,
+    options,
+  ).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
+);
+
 // ── Decimal + DecimalFormatter (STABLE) ──────────────────────────────────
 
 JSObject _decimalFormatter(JSObject locale, JSObject? strategy) {
   final tag = localeTag(locale);
   final grouping = _useGrouping(strategy);
   final o = JSObject();
+  JSObject options(String s) {
+    final k = _fractionDigits(s);
+    return jsOptions({
+      'useGrouping': grouping,
+      'minimumFractionDigits': k.toJS,
+      'maximumFractionDigits': k.toJS,
+    });
+  }
+
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    final k = _fractionDigits(s);
-    return _fmt(
-      tag,
-      jsOptions({
-        'useGrouping': grouping,
-        'minimumFractionDigits': k.toJS,
-        'maximumFractionDigits': k.toJS,
-      }),
-      s,
-    );
+    return _fmt(tag, options(s), s);
+  }
+
+  JSObject formatToParts(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return _fmtParts(tag, options(s), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
   return o;
 }
 

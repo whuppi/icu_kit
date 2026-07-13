@@ -2,6 +2,7 @@
 import { DataError } from "./DataError.mjs"
 import { DataProvider } from "./DataProvider.mjs"
 import { Decimal } from "./Decimal.mjs"
+import { FormattedNumberParts } from "./FormattedNumberParts.mjs"
 import { Locale } from "./Locale.mjs"
 import { PercentDisplay } from "./PercentDisplay.mjs"
 import wasm from "./diplomat-wasm.mjs";
@@ -120,6 +121,23 @@ export class PercentFormatter {
         finally {
             diplomatRuntime.FUNCTION_PARAM_ALLOC.clean();
             write.free();
+        }
+    }
+
+    /**
+     * Format `value` into typed parts (ECMA-402 `formatToParts` shape):
+     * integer / group / decimal / fraction / percentSign / sign.
+     */
+    formatToParts(value) {
+
+        const result = wasm.icu4x_PercentFormatter_format_to_parts_mv1(this.ffiValue, value.ffiValue);
+
+        try {
+            return new FormattedNumberParts(diplomatRuntime.internalConstructor, result, []);
+        }
+
+        finally {
+            diplomatRuntime.FUNCTION_PARAM_ALLOC.clean();
         }
     }
 

@@ -2,6 +2,7 @@
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { UnitsWidth } from "./UnitsWidth"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
@@ -43,4 +44,11 @@ export class UnitsFormatter {
      * See the [Rust documentation for `format_fixed_decimal`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/units/formatter/struct.UnitsFormatter.html#method.format_fixed_decimal) for more information.
      */
     format(value: Decimal): string;
+
+    /**
+     * Format `value` into typed parts (ECMA-402 `formatToParts` shape):
+     * integer / group / decimal / fraction, with the unit name as a
+     * single `unit` part and surrounding spacing as `literal`.
+     */
+    formatToParts(value: Decimal): FormattedNumberParts;
 }

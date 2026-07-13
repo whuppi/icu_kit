@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Regenerate with:
-//   fvm dart run test/browser_engine/gen_surface_snapshot.dart
+//   fvm dart run tool/browser_engine/gen_surface_snapshot.dart
 //
 // The reviewed set of module classes the browser-engine shim must register:
 // every class the web bindings + dispatch reach via

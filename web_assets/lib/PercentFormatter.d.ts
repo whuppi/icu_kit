@@ -2,6 +2,7 @@
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { PercentDisplay } from "./PercentDisplay"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
@@ -40,4 +41,10 @@ export class PercentFormatter {
      * See the [Rust documentation for `format`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/percent/formatter/struct.PercentFormatter.html#method.format) for more information.
      */
     format(value: Decimal): string;
+
+    /**
+     * Format `value` into typed parts (ECMA-402 `formatToParts` shape):
+     * integer / group / decimal / fraction / percentSign / sign.
+     */
+    formatToParts(value: Decimal): FormattedNumberParts;
 }

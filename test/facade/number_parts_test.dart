@@ -17,6 +17,8 @@ void expectReconstructs(List<IcuNumberPart> parts, String formatted) {
 
 void main() {
   setUpAll(() async {
+    // On chrome this points init at the served wasm module; a no-op on the VM.
+    IcuKit.moduleUrl = '../../web_assets/lib/index.mjs';
     await IcuKit.init();
   });
 

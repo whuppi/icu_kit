@@ -3,6 +3,7 @@ import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
 import type { DecimalGroupingStrategy } from "./DecimalGroupingStrategy"
+import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
 
@@ -47,4 +48,10 @@ export class DecimalFormatter {
      * See the [Rust documentation for `format`](https://docs.rs/icu/2.2.0/icu/decimal/struct.DecimalFormatter.html#method.format) for more information.
      */
     format(value: Decimal): string;
+
+    /**
+     * Format `value` into typed parts (integer / group / decimal /
+     * fraction / sign), mirroring ECMA-402 `formatToParts`.
+     */
+    formatToParts(value: Decimal): FormattedNumberParts;
 }

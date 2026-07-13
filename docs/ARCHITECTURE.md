@@ -167,9 +167,10 @@ hook/build.dart
   ├─ Detects target Rust triple from CodeConfig.
   ├─ RESOLVES the binary via the 5-step waterfall (§7): hash-verified
   │    cache → hash-verified GitHub Release download → cargo compile
-  │    from vendor → submodule init → error. pub.dev consumers download;
-  │    git/path checkouts compile (`cargo rustc --crate-type=cdylib
-  │    --release`, + simple_logger).
+  │    from vendor → submodule init → error. Download is the fast path;
+  │    compile works anywhere with a Rust toolchain — the vendor ships
+  │    in the pub tarball (`cargo rustc --crate-type=cdylib --release`,
+  │    + simple_logger).
   └─ Registers the .dylib/.so/.dll/.a as a code asset under
      `package:icu_kit/src/runtime/native/bindings/lib.g.dart`. The Diplomat-generated
      @Native symbols inside the bindings library resolve to that asset.
@@ -402,7 +403,7 @@ The composite row pair is what lets one `init` call run unchanged on both flavor
 
 ## 7. The build hook
 
-`hook/build.dart` is the package's only build orchestrator. It resolves the native binary through the same 5-step waterfall pdf_manipulator uses (`lib/src/hook/resolver.dart`): hash-verified cache → hash-verified download from GitHub Releases → compile from vendor source → submodule init + compile → explanatory error. pub.dev consumers download (the vendored ICU4X source is far past the pub archive limit, so it's `.pubignore`d — unlike pdf_manipulator's vendor); git/path checkouts compile from source, where dev version `0.0.0` skips the download step so cargo's fingerprint check owns freshness.
+`hook/build.dart` is the package's only build orchestrator. It resolves the native binary through the same 5-step waterfall pdf_manipulator uses (`lib/src/hook/resolver.dart`): hash-verified cache → hash-verified download from GitHub Releases → compile from vendor source → submodule init + compile → explanatory error. pub.dev consumers download first (no Rust toolchain needed); the vendored ICU4X source ships in the pub tarball (same model as pdf_manipulator — see `.pubignore` for the measured size), so compile-from-vendor is a real fallback for them too. Git/path checkouts compile from source, where dev version `0.0.0` skips the download step so cargo's fingerprint check owns freshness.
 
 Per hook invocation it:
 

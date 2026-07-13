@@ -468,9 +468,16 @@ What icu_kit's release adds on top:
 - **Native compile matrix** — the compile step checks out the tag and
   builds all 6 target groups in parallel (26 native variants: every
   target × bundled + lean CLDR, plus both wasm variants).
-- **Submodule deregistration** — the shared engine deregisters the
-  vendored submodule so the tag ships raw icu4x source (git-ref
-  consumers get vendor without submodule support).
+- **Submodule deregistration** — at `--discover` the shared engine
+  de-registers the vendored submodule into the stamped tag: gitlink
+  dropped, `vendor/icu4x/.git` + `.gitmodules` removed, the vendor
+  tree force-added as regular tracked files, and `false_secrets:
+  /vendor/icu4x/**` stamped into pubspec for pub's secret scanner
+  (mechanism: whuppi/ci `release.sh`, `cmd_discover`). Both the tag
+  AND the pub tarball therefore carry raw ICU4X source — a pub.dev
+  install can compile from source or run `slice` even if every
+  GitHub release asset disappears. Same survivability model as
+  pdf_manipulator.
 - **Asset hashes into the tag** — after upload, `--update-tag-hashes`
   writes the binary hashes back into the tag, so `git: ref: <tag>`
   users get verified binary downloads.

@@ -45,8 +45,9 @@
 //
 // And add `assets/icu/` to your pubspec.yaml's flutter assets entry.
 //
-// Requires the vendored icu4x submodule (datagen runs from it); a pub.dev
-// consumer without the submodule cannot slice — use a git checkout.
+// Requires the vendored icu4x source (datagen compiles and runs from it)
+// and a Rust toolchain. The vendor ships in the pub tarball, so pub.dev
+// consumers can slice too; a git checkout needs a --recursive clone.
 
 import 'dart:io';
 

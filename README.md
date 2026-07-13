@@ -132,9 +132,10 @@ flutter pub run icu_kit:setup --force <target> # re-resolve (debugging)
 Flutter's build system automatically downloads native binaries for
 iOS, Android, etc., but it doesn't support web assets (WASM, JS)
 yet. The setup command fills that gap: it downloads the pre-built
-WASM engine, or compiles it from the vendored Rust source when
-you're on a git checkout (that path needs the Rust toolchain and a
-`--recursive` clone — see [CONTRIBUTING](CONTRIBUTING.md)).
+WASM engine, or falls back to compiling it from the vendored Rust
+source, which ships in the package (that path needs the Rust
+toolchain; on a git checkout it also needs a `--recursive` clone —
+see [CONTRIBUTING](CONTRIBUTING.md)).
 
 This will go away when Dart/Flutter adds WASM/JS asset support to
 build hooks. Tracking: [dart-lang/native#988](https://github.com/dart-lang/native/issues/988)

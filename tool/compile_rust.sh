@@ -153,7 +153,13 @@ ensure_target() {
   local triple="$1" toolchain="${2:-}"
   local args=(target add "$triple")
   [ -n "$toolchain" ] && args+=(--toolchain "$toolchain")
-  rustup "${args[@]}" >/dev/null
+  # Add the target to the toolchain cargo will actually use. The cdylib
+  # build runs inside $VENDOR, where vendor/icu4x/rust-toolchain.toml pins
+  # the channel — so add the target there too (rustup honours that file),
+  # or the target lands on the default toolchain and cargo builds on the
+  # pinned one → "can't find crate for core". The staticlib path passes an
+  # explicit --toolchain, which overrides the file regardless of cwd.
+  ( cd "$VENDOR" && rustup "${args[@]}" >/dev/null )
 }
 
 ensure_nightly() {
@@ -371,16 +377,21 @@ do_native() {
 # ═══════════════════════════════════════════════════════════════════
 
 do_wasm() {
+  # DART is set by the caller (Makefile: `DART = fvm dart`); CI has no bare
+  # `dart` on PATH. Require it, no silent fallback — same as the other
+  # scripts (analyze.sh, platforms_gate.sh).
+  : "${DART:?compile_rust.sh wasm: DART must be set by the caller (e.g. fvm dart)}"
+
   # Resolve COMPILE_OUTPUT_DIR before anything else — the release
   # pipeline reads it; local builds land in web_assets/ only.
   local release_out="${COMPILE_OUTPUT_DIR:+$(cd "$PKG_ROOT" && mkdir -p "$COMPILE_OUTPUT_DIR/wasm" && cd "$COMPILE_OUTPUT_DIR/wasm" && pwd)}"
 
   echo "=== WASM (bundled CLDR): tool/build_wasm.dart ==="
-  ( cd "$PKG_ROOT" && dart run tool/build_wasm.dart )
+  ( cd "$PKG_ROOT" && $DART run tool/build_wasm.dart )
 
   echo ""
   echo "=== WASM (lean): tool/build_wasm.dart --lean ==="
-  ( cd "$PKG_ROOT" && dart run tool/build_wasm.dart --lean )
+  ( cd "$PKG_ROOT" && $DART run tool/build_wasm.dart --lean )
 
   echo ""
   echo "=== WASM summary ==="

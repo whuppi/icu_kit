@@ -379,7 +379,7 @@ compile-windows:
 	bash tool/compile_rust.sh windows
 
 compile-wasm:
-	bash tool/compile_rust.sh wasm
+	DART="$(DART)" bash tool/compile_rust.sh wasm
 
 compile-natives:
 	bash tool/compile_rust.sh native

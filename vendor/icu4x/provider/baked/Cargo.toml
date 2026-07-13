@@ -1,0 +1,34 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+[package]
+name = "icu_provider_baked"
+description = "Tooling for the ICU4X baked data provider"
+version.workspace = true
+keywords = ["data", "unicode"]
+
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+include.workspace = true
+
+[dependencies]
+icu_provider = { workspace = true, features = ["export", "baked"] }
+
+crlify = { workspace = true }
+databake = { workspace = true }
+icu_provider_registry = { workspace = true }
+log = { workspace = true }
+heck = { workspace = true }
+zerotrie = { workspace = true, features = ["databake"] }
+
+[dev-dependencies]
+icu_provider_export = { path = "../export" }
+zerovec = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "nakaraang quarter",
+    "0": "ngayong quarter",
+    "1": "susunod na quarter"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " quarter ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " quarter"
+        }
+      ]
+    ]
+  }
+}

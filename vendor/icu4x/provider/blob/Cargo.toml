@@ -1,0 +1,69 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+[package]
+name = "icu_provider_blob"
+description = "ICU4X data provider that reads from blobs in memory"
+categories.workspace = true
+keywords = []
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+icu_provider = { workspace = true, features = ["deserialize_postcard_1", "serde"] }
+postcard = { workspace = true }
+serde = { workspace = true }
+writeable = {workspace = true }
+zerovec = { workspace = true, features = ["serde", "yoke"] }
+zerotrie = { workspace = true, features = ["serde", "zerovec"] }
+
+log = { workspace = true, optional = true }
+
+[dev-dependencies]
+databake = { path = "../../utils/databake" }
+icu_provider_export = { path = "../../provider/export" }
+icu_locale = { path = "../../components/locale", default-features = false, features = ["compiled_data"] }
+icu_locale_core = { path = "../../components/locale_core", default-features = false, features = ["serde"] }
+icu_provider = { path = "../../provider/core", features = ["alloc"] }
+icu_provider_adapters = { path = "../../provider/adapters", default-features = false }
+twox-hash = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = { workspace = true }
+
+[features]
+export = [
+    "icu_provider/export",
+    "dep:log",
+    "alloc",
+]
+alloc = ["icu_provider/alloc", "postcard/alloc", "zerotrie/alloc", "serde/alloc"]
+
+# added by accident
+log = []
+
+[lib]
+bench = false  # This option is required for Benchmark CI
+
+[[bench]]
+name = "auxkey_bench"
+harness = false
+required-features = ["export"]
+
+[[bench]]
+name = "blob_version_bench"
+harness = false
+
+[lints]
+workspace = true

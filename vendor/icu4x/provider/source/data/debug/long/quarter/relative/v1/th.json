@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "ไตรมาสที่แล้ว",
+    "0": "ไตรมาสนี้",
+    "1": "ไตรมาสหน้า"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " ไตรมาสที่แล้ว"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "ในอีก "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " ไตรมาส"
+        }
+      ]
+    ]
+  }
+}

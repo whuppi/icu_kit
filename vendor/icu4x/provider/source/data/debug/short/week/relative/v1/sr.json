@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "прошле нед.",
+    "0": "ове нед.",
+    "1": "следеће нед."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "пре "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " нед."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "за "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " нед."
+        }
+      ]
+    ]
+  }
+}

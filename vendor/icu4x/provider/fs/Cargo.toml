@@ -1,0 +1,61 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+[package]
+name = "icu_provider_fs"
+description = "ICU4X data provider that reads from structured data files"
+categories.workspace = true
+keywords = []
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+icu_provider = { workspace = true, features = ["serde", "std", "export"] }
+serde = { workspace = true, features = ["derive", "alloc"] }
+serde-json-core = { workspace = true, features = ["std"] }
+
+# Dependencies for the export feature
+bincode = { workspace = true, optional = true }
+crlify = { workspace = true, optional = true }
+postcard = { workspace = true, features = ["alloc"], optional = true }
+serde_json = { workspace = true, features = ["std"], optional = true }
+
+[dev-dependencies]
+icu_locale_core = { path = "../../components/locale_core", default-features = false, features = ["serde"] }
+icu_provider = { path = "../../provider/core", default-features = false, features = ["deserialize_json", "deserialize_bincode_1", "deserialize_postcard_1", "export"] }
+icu_provider_export = { path = "../../provider/export", default-features = false }
+writeable = { path = "../../utils/writeable" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = { workspace = true }
+
+[features]
+# Enables the "export" module and FilesystemExporter
+export = [
+    "dep:bincode",
+    "dep:crlify",
+    "dep:postcard",
+    "dep:serde_json",
+    "icu_provider/export",
+    "icu_provider/deserialize_bincode_1",
+    "icu_provider/deserialize_json",
+    "icu_provider/deserialize_postcard_1",
+]
+
+[[bench]]
+name = "provider_fs"
+harness = false
+
+[lints]
+workspace = true

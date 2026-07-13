@@ -1,0 +1,34 @@
+{
+  "relatives": {
+    "0": "ขณะนี้"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " วินาทีที่แล้ว"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "ใน "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " วินาที"
+        }
+      ]
+    ]
+  }
+}

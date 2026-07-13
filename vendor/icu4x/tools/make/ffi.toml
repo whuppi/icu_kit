@@ -1,0 +1,301 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+# This is a cargo-make file included in the toplevel Makefile.toml
+
+# C/C++ tasks
+
+[tasks.test-c]
+description = "Run C API tests"
+category = "ICU4X Development"
+command = "make"
+args = ["-C", "examples/c", "test"]
+
+[tasks.test-c-tiny]
+description = "Run C API tests for tiny targets"
+category = "ICU4X Development"
+dependencies = ["install-unknown-linux-llvm-nightly"]
+script_runner = "@duckscript"
+script = '''
+exit_on_error true
+exec --fail-on-error make -C examples/c-tiny/decimal
+exec --fail-on-error make -C examples/c-tiny/segmenter
+'''
+
+[tasks.test-cpp]
+description = "Run CPP tests"
+category = "ICU4X Development"
+command = "make"
+args = ["-C", "examples/cpp", "test"]
+
+
+# JS/WASM tasks
+
+[tasks.test-npm]
+description = "Run JS tests"
+category = "ICU4X Development"
+dependencies = ["install-wasm-nightly"]
+env = { PINNED_CI_NIGHTLY = "${PINNED_CI_NIGHTLY}" }
+script_runner = "@duckscript"
+script = '''
+exit_on_error true
+exec --fail-on-error npm -C ffi/npm install-ci-test
+exec --fail-on-error npm -C ffi/npm run bench
+exec --fail-on-error npm -C examples/npm install
+exec --fail-on-error npm -C examples/npm run compile
+exec --fail-on-error npm -C examples/npm run start
+'''
+
+[tasks.test-tinywasm]
+description = "Test the Tiny WASM example"
+category = "ICU4X Development"
+dependencies = ["install-wasm-llvm-nightly"]
+command = "make"
+args = ["-C", "examples/js-tiny", "test"]
+
+
+# Dart tasks
+
+[tasks.test-dart]
+description = "Run Dart tests"
+category = "ICU4X Development"
+dependencies = [
+    "test-dart-lib",
+    "test-dart-example",
+]
+
+[tasks.test-dart-lib]
+description = "Run Dart tests"
+category = "ICU4X Development"
+script_runner = "@duckscript"
+script = '''
+cd ffi/dart
+exec --fail-on-error dart pub get
+exec --fail-on-error dart format --set-exit-if-changed .
+exec --fail-on-error dart analyze
+exec --fail-on-error dart test
+'''
+
+[tasks.test-dart-example]
+description = "Run Dart tests"
+category = "ICU4X Development"
+script_runner = "@duckscript"
+script = '''
+cd examples/dart
+exec --fail-on-error dart pub get
+exec --fail-on-error dart format --set-exit-if-changed .
+exec --fail-on-error dart analyze
+exec --fail-on-error dart --enable-experiment=record-use build cli bin/example.dart
+bins = glob_array ./build/cli/*/bundle/bin/*
+bin = array_pop ${bins}
+exec --fail-on-error ${bin}
+libs = glob_array ./build/cli/*/bundle/lib/*
+lib = array_pop ${libs}
+size = filesize ${lib}
+println ${size} "bytes"
+pubspec = readfile pubspec.yaml
+is_local = contains ${pubspec} "buildMode: local"
+if not ${is_local} # local dylib is not treeshaken
+    if greater_than ${size} 10000000
+        trigger_error "Dart example binary >10MB"
+    end
+end
+'''
+
+[tasks.test-kotlin]
+description = "Run Kotlin tests"
+category = "ICU4X Development"
+script_runner = "@duckscript"
+script = '''
+cd ffi/mvn
+exec --fail-on-error make
+echo "Running mvn test"
+exec --fail-on-error mvn test
+'''
+
+# no_std tasks
+
+[tasks.check-freertos-wearos]
+description = "Build ICU4X CAPI for Cortex"
+category = "ICU4X FFI"
+dependencies = ["install-cortex-8-nightly"]
+toolchain = "${PINNED_CI_NIGHTLY}"
+env = { RUSTFLAGS = "-Zunstable-options -Ctarget-cpu=cortex-m33 -Cpanic=immediate-abort -Copt-level=s" }
+command = "cargo"
+args = ["check", "--package", "icu_freertos",
+        "--target", "thumbv8m.main-none-eabihf",
+        "--no-default-features", "--features=wearos",
+        "-Zbuild-std=core,alloc"]
+
+[tasks.check-noalloc]
+description = "Build crates that are expected to work in no-alloc mode"
+category = "ICU4X FFI"
+dependencies = ["install-unknown-linux-nightly"]
+toolchain = "${PINNED_CI_NIGHTLY}"
+env = { RUSTFLAGS = "-Cpanic=abort" }
+command = "cargo"
+args = ["rustc", "-p", "noalloctest",
+        "--target", "x86_64-unknown-linux-gnu",
+        "-Zbuild-std=core,panic_abort",
+        "--",
+        "-Clink-arg=-nostartfiles", "-Cpanic=abort",
+        "--cfg", "icu4x_noalloctest"]
+
+# Diplomat gen
+
+[tasks.diplomat-gen]
+description = "Regenerate Diplomat bindings"
+category = "ICU4X Development"
+dependencies = [
+    "diplomat-gen-c",
+    "diplomat-gen-cpp",
+    "diplomat-gen-js",
+    "diplomat-gen-dart",
+    "diplomat-gen-demo",
+    "diplomat-gen-kotlin",
+]
+
+[tasks.verify-diplomat-gen]
+description = "Verify that checked-in Diplomat bindings are up to date"
+category = "ICU4X Development"
+dependencies = [
+    "diplomat-gen",
+]
+script_runner = "@duckscript"
+script = '''
+exit_on_error true
+code = exec --get-exit-code git diff --exit-code -- ffi/capi/bindings ffi/mvn/src/main/kotlin/src ffi/dart/lib/src/bindings tools/web-demo/gen
+if ${code}
+    trigger_error "Diplomat bindings need to be regenerated. Please run `cargo make diplomat-gen` and commit. (Testing against different Diplomat versions may omit install step.)"
+end
+'''
+
+[tasks.diplomat-gen-c]
+description = "Generate C headers for the FFI with Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+args = ["run", "--manifest-path", "tools/make/diplomat-gen/Cargo.toml", "c"]
+
+[tasks.diplomat-gen-cpp]
+description = "Generate C++ headers for the FFI with Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+args = ["run", "--manifest-path", "tools/make/diplomat-gen/Cargo.toml", "cpp"]
+
+[tasks.diplomat-gen-js]
+description = "Generate JS bindings for the FFI with Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+args = ["run", "--manifest-path", "tools/make/diplomat-gen/Cargo.toml", "js"]
+
+[tasks.diplomat-gen-demo]
+description = "Generate Demo HTML for the FFI with Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+args = ["run", "--manifest-path", "tools/make/diplomat-gen/Cargo.toml", "demo_gen"]
+
+[tasks.diplomat-gen-dart]
+description = "Generate Dart bindings for the FFI with Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+args = ["run", "--manifest-path", "tools/make/diplomat-gen/Cargo.toml", "dart"]
+
+[tasks.diplomat-gen-kotlin]
+description = "Generate Kotlin bindings for the FFI with Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+args = ["run", "--manifest-path", "tools/make/diplomat-gen/Cargo.toml", "kotlin"]
+
+# Diplomat coverage
+
+[tasks.diplomat-coverage]
+description = "Produces the list of ICU APIs that are not exported through Diplomat"
+category = "ICU4X Development"
+command = "cargo"
+env = { ICU4X_DATA_DIR = "../stubdata" }
+args = ["run", "--manifest-path=tools/make/diplomat-coverage/Cargo.toml", "--", "ffi/capi/tests/missing_apis.txt"]
+
+[tasks.verify-diplomat-coverage]
+description = "Verify that checked-in Diplomat coverage is up to date"
+category = "ICU4X Development"
+dependencies = [
+    "diplomat-coverage",
+]
+script_runner = "@duckscript"
+script = '''
+exit_on_error true
+code = exec --get-exit-code git diff --exit-code -- ffi/capi/tests
+if ${code}
+    trigger_error "Diplomat coverage dump need to be regenerated. Please run `cargo make diplomat-coverage` and commit."
+end
+'''
+
+# Install tasks
+
+[tasks.install-nightly]
+description = "Installs $PINNED_CI_NIGHTLY"
+category = "ICU4X Development"
+script_runner = "@duckscript"
+script = '''
+exec --fail-on-error rustup install ${PINNED_CI_NIGHTLY} --profile minimal
+exec --fail-on-error rustup component add rust-src --toolchain ${PINNED_CI_NIGHTLY}
+'''
+
+[tasks.install-llvm-nightly]
+description = "Installs $LLVM_COMPATIBLE_NIGHTLY"
+category = "ICU4X Development"
+script_runner = "@duckscript"
+script = '''
+exec --fail-on-error rustup install ${LLVM_COMPATIBLE_NIGHTLY} --profile minimal
+exec --fail-on-error rustup component add rust-src --toolchain ${LLVM_COMPATIBLE_NIGHTLY}
+'''
+
+
+[tasks.install-unknown-linux-nightly]
+description = "Installs the unknown-linux target"
+category = "ICU4X Development"
+dependencies = ["install-nightly"]
+toolchain = "${PINNED_CI_NIGHTLY}"
+command = "rustup"
+args = ["target", "add", "x86_64-unknown-linux-gnu"]
+
+[tasks.install-unknown-linux-llvm-nightly]
+description = "Installs the unknown-linux target"
+category = "ICU4X Development"
+dependencies = ["install-llvm-nightly"]
+toolchain = "${LLVM_COMPATIBLE_NIGHTLY}"
+command = "rustup"
+args = ["target", "add", "x86_64-unknown-linux-gnu"]
+
+[tasks.install-emscripten-nightly]
+description = "Installs the emscripten target"
+category = "ICU4X Development"
+dependencies = ["install-nightly"]
+toolchain = "${PINNED_CI_NIGHTLY}"
+command = "rustup"
+args = ["target", "add", "wasm32-unknown-emscripten"]
+
+[tasks.install-wasm-nightly]
+description = "Installs the wasm target"
+category = "ICU4X Development"
+dependencies = ["install-nightly"]
+toolchain = "${PINNED_CI_NIGHTLY}"
+command = "rustup"
+args = ["target", "add", "wasm32-unknown-unknown"]
+
+[tasks.install-wasm-llvm-nightly]
+description = "Installs the wasm target"
+category = "ICU4X Development"
+dependencies = ["install-llvm-nightly"]
+toolchain = "${LLVM_COMPATIBLE_NIGHTLY}"
+command = "rustup"
+args = ["target", "add", "wasm32-unknown-unknown"]
+
+[tasks.install-cortex-8-nightly]
+description = "Install the thumbv8m target"
+category = "ICU4X FFI"
+dependencies = ["install-nightly"]
+toolchain = "${PINNED_CI_NIGHTLY}"
+command = "rustup"
+args = ["target", "add", "thumbv8m.main-none-eabihf"]

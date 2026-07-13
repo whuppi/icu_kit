@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "el trimestre pasado",
+    "0": "este trimestre",
+    "1": "el próximo trimestre"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " trim."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " trim."
+        }
+      ]
+    ]
+  }
+}

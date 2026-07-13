@@ -45,7 +45,15 @@ lib/
         bindings.dart        — mirror barrel
         dispatch.g.dart      — generated mirror-typed dispatch twin
         flavor_probe.dart    — wasm compiled-data export probe
-        init.dart            — IcuKit (web loader: module import + probe)
+        init.dart            — IcuKit (web loader: module import + probe;
+                               init(webEngine:) branches to the browser Intl engine)
+      web_engine.dart        — the WebEngine { icu4x, browserIntl } enum, shared by
+                               both init.dart files (exported to users)
+      web_intl/              — the browser Intl engine (opt-in, zero download):
+                               a Dart-built module served off globalThis.Intl.
+                               DEFERRED-loaded by web/init.dart only when
+                               webEngine == browserIntl. One file per facade
+                               family + throwing.dart defaults
     hook/                    — resolver.dart (binary waterfall),
                                asset_hashes.dart (stamped per release),
                                marker_presets.dart (slice presets)
@@ -200,6 +208,58 @@ lib/src/facade/*.dart (the same single-source facades as native)
 
 One facade source serves both platforms; only the binding layer under the
 seam differs. Tests run on both platforms.
+
+### 3c. Web, engine two (`globalThis.Intl`, zero download)
+
+The web dispatch layer never touches the WASM engine directly — it resolves
+every class off `IcuKit.module`, calls a static or constructor, and wraps the
+result. That indirection is a seam: anything that answers
+`getProperty('DateFormatter').createYmd(...)` the way the WASM module does can
+stand in for it. The browser Intl engine exploits this.
+
+```
+IcuKit.init(webEngine: WebEngine.browserIntl)   (native ignores webEngine)
+  ↓ web/init.dart, browser branch:
+  ├─ await browser_intl.loadLibrary() — DEFERRED import, so web_intl compiles
+  │    into a separate chunk loaded ONLY here. ICU4X-mode bundles never ship it.
+  ├─ buildBrowserIntlModule() — in web_intl/install.dart. Builds a plain JS
+  │    module (not the WASM module):
+  │      • registerThrowAllDefaults(module) — every facade class gets a Proxy
+  │        that raises IcuUnsupportedError on any access (the honest default).
+  │      • per-family registrars (locale/number/plural/list/relative/display/
+  │        collator/case/normalize/segment/datetime) OVERRIDE the classes the
+  │        browser can serve, building each over globalThis.Intl (ECMA-402).
+  └─ init sets IcuKit.module = that module (skips importModule),
+       hasCompiledData=true (skips the WASM probe), engine='browser-intl'.
+       The default BundledIcuData makes providerFor() return null → every
+       dispatch call takes its providerless path, which the shim implements.
+
+lib/src/facade/*.dart — the SAME facades, unchanged
+  ↓
+lib/src/runtime/web/dispatch.g.dart — the SAME dispatch twin, unchanged
+  └─ getProperty('DateFormatter').createYmd(...) now hits the Intl-backed
+     object instead of the WASM one.
+```
+
+Nothing under the facade knows which engine is loaded. What the browser can't
+do — bidi, Unicode properties, IDNA, line-break segmentation, case folding,
+and the calendar-arithmetic object — raises `IcuUnsupportedError` at the call,
+never a wrong answer. (Formatting dates in a non-Gregorian calendar is not in
+that list: it works via the `-u-ca-` locale extension, which `Intl` honors.)
+
+**The drift guard.** The browser module must register every class the web
+binding + dispatch reach, or an unregistered class is a silent crash. A VM
+test (`test/browser_engine/contract_guard_test.dart`) derives the required
+class set straight from the binding source — direct `getProperty('X')`
+literals plus two helper indirections (`_fromIntegerValue`, `_jsEnum`) — and
+asserts it equals a committed snapshot; a chrome twin asserts the built module
+resolves every name. Add a class to a binding and forget the shim, and the
+guard fails in CI. Per-family behavior (which options work, which raise) is
+proven by the `*_chrome_test.dart` suites, not the guard. See `UPDATING.md`
+§5c.
+
+One facade source now serves three web-visible engines (bundled WASM, lean
+WASM, browser Intl) plus native — all below the same seam.
 
 ---
 

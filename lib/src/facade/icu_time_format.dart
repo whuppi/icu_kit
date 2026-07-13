@@ -36,6 +36,7 @@ final class IcuTimeFormat {
       );
       return IcuTimeFormat._(formatter);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Time formatter unavailable for $locale: $e',
         locale: locale,

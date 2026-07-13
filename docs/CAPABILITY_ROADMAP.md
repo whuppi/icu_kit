@@ -58,6 +58,20 @@ Tier legend: **A** = STABLE (`icu_*` Rust crates). **B** = STABLE-WITH-CAVEAT (`
 
 Build-hook works on every platform. Test coverage gap is CI matrix only — every binary built locally has been smoke-tested.
 
+### Web engines — three ways to ship the data
+
+Web has three interchangeable engines behind the same facade. The two ICU4X engines carry ICU4X and produce byte-identical output everywhere. The browser Intl engine carries nothing — it serves the facade off the browser's own `Intl` (ECMA-402), so it ships **zero bytes** but covers only what `Intl` covers, and its output tracks each browser's CLDR version.
+
+| Engine | Download | Data source | Select with |
+|---|---|---|---|
+| ICU4X (bundled) | ~19 MB | ICU4X, all locales | `icu_kit:setup` |
+| ICU4X (lean) | ~2.1 MB + postcards | ICU4X, sliced locales | `icu_kit:setup --lean` |
+| Browser Intl | 0 bytes | the browser's `Intl` | `IcuKit.init(webEngine: WebEngine.browserIntl)` |
+
+The per-facade capability breakdown for the browser Intl engine (FULL / PARTIAL / THROW per family) lives in one place: [README → Browser Intl mode capability matrix](../README.md#browser-intl-mode-zero-download). It's the user-facing decision surface, so it's kept there rather than duplicated here.
+
+The browser Intl engine registers every facade class; the ones it can't serve raise `IcuUnsupportedError` at the call, never a silent wrong answer. A drift guard (`test/browser_engine/contract_guard_test.dart`) derives the full class set from the binding source and fails if the shim misses one — see [`UPDATING.md`](UPDATING.md).
+
 ---
 
 ## Table 3 — Test coverage

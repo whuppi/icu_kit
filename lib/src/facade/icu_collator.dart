@@ -47,6 +47,7 @@ final class IcuCollator {
     try {
       return IcuCollator._(dispatch.collatorDefault(locale, loc.ffi, options));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Collator unavailable for $locale: $e',
         locale: locale,

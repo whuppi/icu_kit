@@ -3,6 +3,11 @@ import 'dart:js_interop';
 import 'package:logging/logging.dart';
 
 import 'flavor_probe.dart';
+import '../web_engine.dart';
+// DEFERRED: the browser-Intl shim is compiled into a separate chunk and
+// loaded ONLY when `init(webEngine: WebEngine.browserIntl)` runs, so
+// ICU4X-mode web bundles never ship it.
+import '../web_intl/install.dart' deferred as browser_intl;
 import '../../data/icu_data_resolver.dart';
 import '../../data/icu_data.dart';
 import '../../errors/icu_error.dart';
@@ -30,6 +35,27 @@ class IcuKit {
   static IcuDataResolver? _resolver;
   static bool? _hasCompiledData;
 
+  // The web engine chosen by the FIRST init(). Fixed for the app lifetime and
+  // the single source of truth for [engine]. Claimed synchronously in init()
+  // (before any await), together with [_moduleLoad], so a concurrent or later
+  // init() requesting a DIFFERENT engine is rejected rather than silently
+  // handed this one. Cleared with [_moduleLoad] if the load fails.
+  static WebEngine? _chosenEngine;
+
+  // Latches the one-time module load. Every init() awaits this SAME future, so
+  // concurrent calls share one load instead of racing to set _module /
+  // _hasCompiledData. Set to null on a failed load so a later init() retries.
+  static Future<void>? _moduleLoad;
+
+  /// Which web engine is active: `'icu4x'` (default) or `'browser-intl'`
+  /// (selected via `IcuKit.init(webEngine: WebEngine.browserIntl)`). On native
+  /// this getter returns `'native'` — the surface is symmetric across the
+  /// conditional import.
+  static String get engine => switch (_chosenEngine) {
+    WebEngine.browserIntl => 'browser-intl',
+    WebEngine.icu4x || null => 'icu4x',
+  };
+
   /// Module URL relative to the page that loads the app. Defaults to
   /// `'icu_kit/lib/index.mjs'` which matches what `flutter pub run icu_kit:setup`
   /// installs into the consumer's `web/` folder. Override if you put the
@@ -56,8 +82,9 @@ class IcuKit {
 
   /// Bootstrap icu_kit. Call once at app startup before any facade is used.
   ///
-  /// On web this also loads the JS module. Idempotent — safe to call
-  /// repeatedly.
+  /// On web this also loads the JS module. Safe to call repeatedly with the
+  /// same [webEngine] (a later call just updates [data]); the engine is fixed
+  /// by the first call.
   ///
   /// [data] determines how CLDR data is loaded:
   ///   * Default ([IcuData.bundled]) — full baked-in data (today's only
@@ -65,25 +92,56 @@ class IcuKit {
   ///   * [IcuData.lazy] — load per-locale postcards on demand.
   ///   * [IcuData.composite] — tiered fallback.
   ///
+  /// [webEngine] picks the web engine: [WebEngine.icu4x] (default, full ICU4X)
+  /// or [WebEngine.browserIntl] (the browser's built-in `Intl`, zero download —
+  /// see [WebEngine.browserIntl] for the coverage trade). The browser engine's
+  /// code is loaded lazily, only when selected.
+  ///
   /// Validation runs against the DETECTED wasm flavor
   /// ([hasCompiledData]) — same single-door contract as native.
   ///
   /// Throws [IcuLoadError] if the JS module fails to load.
   /// Throws [IcuMissingDataError] if the wasm is lean and no lazy data
   /// is configured.
-  static Future<void> init({IcuData data = const BundledIcuData()}) async {
-    if (_module == null) {
-      try {
-        _module = await importModule(moduleUrl.toJS).toDart;
-      } catch (e) {
-        throw IcuLoadError('web', e);
-      }
+  /// Throws [IcuUnsupportedError] if [WebEngine.browserIntl] is paired with a
+  /// per-locale [IcuData] (lazy / composite) — the browser owns the CLDR.
+  /// Throws [StateError] if a later call requests a different [webEngine] than
+  /// the first — the engine is fixed for the app lifetime.
+  static Future<void> init({
+    IcuData data = const BundledIcuData(),
+    WebEngine webEngine = WebEngine.icu4x,
+  }) async {
+    // Per-call argument check — rejects the bad pairing regardless of whether
+    // the module is already loaded (the browser owns the CLDR, so per-locale
+    // data sources make no sense with it).
+    if (webEngine == WebEngine.browserIntl && data is! BundledIcuData) {
+      throw IcuUnsupportedError(
+        'IcuData.lazy / IcuData.composite (per-locale data sources)',
+        engine: 'browser-intl',
+      );
     }
-    // Probe the sibling diplomat-wasm.mjs (already import-cached by the
-    // classes in index.mjs) for the binary flavor.
-    _hasCompiledData ??= await wasmHasCompiledData(
-      moduleUrl.replaceFirst(RegExp(r'index\.mjs$'), 'diplomat-wasm.mjs'),
-    );
+
+    // Claim the engine + capture the shared load with NO await between, so
+    // Dart's single-threaded prologue makes it atomic: every init() reads a
+    // consistent (_chosenEngine, _moduleLoad) pair. The first call fixes the
+    // engine; a later/concurrent call either shares the exact same load or is
+    // rejected for asking for a different engine — never silently switched.
+    final Future<void> load;
+    final chosen = _chosenEngine;
+    if (chosen == null) {
+      _chosenEngine = webEngine;
+      load = _moduleLoad = _loadModule(webEngine);
+    } else if (chosen != webEngine) {
+      throw StateError(
+        'IcuKit.init() was already called with WebEngine.${chosen.name}; the '
+        'web engine is fixed for the app lifetime and cannot switch to '
+        'WebEngine.${webEngine.name}. Call init() once at startup.',
+      );
+    } else {
+      load = _moduleLoad!;
+    }
+    await load;
+
     final r = _resolver;
     if (r == null) {
       _resolver = IcuDataResolver(
@@ -94,6 +152,35 @@ class IcuKit {
       r.replace(data);
     }
     _validate();
+  }
+
+  // Loads the web module exactly once, latched by [_moduleLoad]. On failure it
+  // clears the latch AND the engine claim so a later init() can retry (and
+  // re-choose the engine), and normalizes any non-Icu throw into [IcuLoadError].
+  static Future<void> _loadModule(WebEngine webEngine) async {
+    try {
+      if (webEngine == WebEngine.browserIntl) {
+        await browser_intl.loadLibrary();
+        _module = browser_intl.buildBrowserIntlModule();
+        _hasCompiledData = true; // the browser owns the CLDR; always present
+      } else {
+        _module = await importModule(moduleUrl.toJS).toDart;
+        // Probe the flavor off diplomat-wasm.mjs — the sibling the loaded
+        // module's classes already import-cache. Resolve it as the sibling in
+        // [moduleUrl]'s own directory, not by rewriting an assumed 'index.mjs'
+        // filename, so an overridden [moduleUrl] still finds it. A moduleUrl
+        // with no '/' gives dir '' → the bare 'diplomat-wasm.mjs', which
+        // resolves next to the page — the same place a bare module URL loads
+        // from, so the sibling is still found.
+        final dir = moduleUrl.substring(0, moduleUrl.lastIndexOf('/') + 1);
+        _hasCompiledData = await wasmHasCompiledData('${dir}diplomat-wasm.mjs');
+      }
+    } catch (e) {
+      _moduleLoad = null; // failed — let the next init() retry
+      _chosenEngine = null;
+      if (e is IcuError) rethrow;
+      throw IcuLoadError('web', e);
+    }
   }
 
   /// Asynchronously load CLDR data for [locale] if the active [IcuData]

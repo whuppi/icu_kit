@@ -30,6 +30,7 @@ final class IcuCalendar {
     try {
       return IcuCalendar._(dispatch.calendarDefault(_toFfi(kind)), kind);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Calendar unavailable for ${kind.name}: $e',
         marker: 'Calendar.${kind.name}',
@@ -59,6 +60,7 @@ final class IcuCalendarDate {
         icu.Date.fromIsoInCalendar(year, month, day, calendar._ffi),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Invalid date $year-$month-$day for ${calendar.kind.name}: $e',
         marker: 'Date.fromIsoInCalendar',

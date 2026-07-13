@@ -62,6 +62,7 @@ final class IcuCurrencyFormat {
       );
       return IcuCurrencyFormat._symbol(formatter);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Currency formatter unavailable for $locale: $e',
         locale: locale,
@@ -96,6 +97,7 @@ final class IcuCurrencyFormat {
       );
       return IcuCurrencyFormat._long(formatter, currencyCode);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Long currency formatter unavailable for $locale + $currencyCode: $e',
         locale: locale,

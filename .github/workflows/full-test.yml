@@ -110,6 +110,11 @@ jobs:
           - { name: "web: Lean Chrome (ubuntu-x64)",      runner: ubuntu-24.04, make: test-web-lean, timeout: 40, chrome: true, headless-display: true, wasm-cache: true, wasm-build: true }
           - { name: "web: Lean Chrome (macos-arm64) [P]", runner: macos-14,     make: test-web-lean, timeout: 40, chrome: true, wasm-cache: true, wasm-build: true, portability: true }
 
+          # ── Browser Intl engine — zero wasm, the app's classes served off
+          #    globalThis.Intl (ECMA-402). No wasm-cache/wasm-build: the whole
+          #    point is the browser ships the data ──
+          - { name: "web: BrowserIntl (ubuntu-x64)", runner: ubuntu-24.04, make: test-browser-engine, timeout: 40, chrome: true, headless-display: true }
+
           # ── WASM build — proves the web artifact still builds from the
           #    vendored source (nightly Rust self-provisioned by the tool;
           #    wasm-opt from the pinned binaryen cache (compile_rust.sh --wasm-opt)) ──

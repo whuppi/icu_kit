@@ -29,6 +29,7 @@ final class IcuCaseMapper {
         dispatch.titlecaseMapperDefault(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError('CaseMapper unavailable: $e', marker: 'CaseMapper');
     }
   }

@@ -85,6 +85,7 @@ final class IcuUnitFormat {
       );
       return IcuUnitFormat._(formatter, unit);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Unit formatter unavailable for $locale + "$unit": $e',
         locale: locale,

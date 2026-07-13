@@ -1,6 +1,7 @@
 import 'package:logging/logging.dart';
 
 import 'flavor_probe.dart';
+import '../web_engine.dart';
 import '../../data/icu_data_resolver.dart';
 import '../../data/icu_data.dart';
 import '../../errors/icu_error.dart';
@@ -37,6 +38,12 @@ class IcuKit {
   /// switch; there is no dart-define to keep in sync).
   static bool get hasCompiledData => binaryHasCompiledData();
 
+  /// Which engine backs this platform. Always `'native'` (dart:ffi + the
+  /// bundled ICU4X). Present for surface symmetry with web, where it
+  /// distinguishes the default `'icu4x'` engine from the opt-in
+  /// `'browser-intl'` engine (`IcuKit.init(webEngine: WebEngine.browserIntl)`).
+  static String get engine => 'native';
+
   /// Bootstrap icu_kit. Call once at app startup before any facade is used.
   ///
   /// [data] determines how CLDR data is loaded:
@@ -54,7 +61,14 @@ class IcuKit {
   ///
   /// Calling [init] again replaces the active data, clearing the
   /// per-locale cache.
-  static Future<void> init({IcuData data = const BundledIcuData()}) async {
+  ///
+  /// [webEngine] is a web-only selector; it is IGNORED on native (there is
+  /// one native engine). It exists so a cross-platform app can write a single
+  /// `IcuKit.init(webEngine: ...)` call that just works everywhere.
+  static Future<void> init({
+    IcuData data = const BundledIcuData(),
+    WebEngine webEngine = WebEngine.icu4x,
+  }) async {
     final r = _resolver;
     if (r == null) {
       _resolver = IcuDataResolver(

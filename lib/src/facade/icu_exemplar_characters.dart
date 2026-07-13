@@ -50,6 +50,7 @@ final class IcuExemplarCharacters {
         ),
       });
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Exemplar characters unavailable for $locale (${set.name}): $e',
         locale: locale,

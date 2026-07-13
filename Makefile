@@ -1,5 +1,5 @@
 .PHONY: check hooks analyze analyze-floor platforms lint-shell format \
-        test test-lean test-web test-web-lean test-guards \
+        test test-lean test-web test-web-lean test-guards test-browser-engine \
         postcards-example-lean test-example-lean-matrix verify-web-lean \
         build-wasm build-wasm-lean regen-bindings clean \
         test-example test-example-matrix test-example-macos test-example-device \
@@ -39,7 +39,7 @@ VERBOSE := $(if $(CI),--verbose,)
 # make check    Full local gate before PR.
 
 check: lint-shell analyze analyze-floor platforms test-guards test test-lean \
-       test-web test-web-lean test-example-matrix
+       test-web test-web-lean test-browser-engine test-example-matrix
 
 # make hooks    Activate the repo's git hooks (commit-msg, pre-commit).
 #               Run once after cloning — they stay dormant otherwise.
@@ -157,10 +157,11 @@ test-guards:
 	  echo "the IO behind the conditional-import loader):"; \
 	  printf "$$bad"; exit 1; fi
 	@bad=$$(grep -rlnE "import '(package:web/|dart:js_interop)" test/ --include="*.dart" \
-	  | grep -v "^test/_corpus/corpus_loader_web.dart" || true); \
+	  | grep -vE "^test/(_corpus/corpus_loader_web|browser_engine/module_probe_web)\.dart$$" \
+	  || true); \
 	if [ -n "$$bad" ]; then \
-	  echo "browser-only import outside the web corpus loader — every other"; \
-	  echo "suite must compile on the VM:"; \
+	  echo "browser-only import outside a conditional-loader web half — every"; \
+	  echo "other suite must compile on the VM:"; \
 	  echo "$$bad"; exit 1; fi
 	@echo "✓ test guards clean"
 
@@ -192,6 +193,21 @@ test-web-lean: build-wasm-lean
 	@cp test/_corpus/postcards/en_minimal.postcard test_fixtures/lean_smoke/web_mirror/
 	@mkdir -p $(TEST_RESULTS_DIR)
 	@cd test_fixtures/lean_smoke && $(DART) test -p chrome $(TIMEOUT) --file-reporter json:../../$(TEST_RESULTS_DIR)/web-lean.json
+
+# make test-browser-engine  The browser Intl engine end to end in real
+#                           Chrome — no ICU4X wasm blob, the app's classes
+#                           served off globalThis.Intl (ECMA-402). Runs the VM
+#                           drift guard (the shim's completeness radar) AND the
+#                           per-family behavior suites under BOTH web compilers:
+#                           dart2js AND dart2wasm. The shim is pure js_interop,
+#                           which can compile clean yet diverge at RUNTIME
+#                           between the two compilers (e.g. how a Symbol property
+#                           key marshals), so the suite runs on each. A build-
+#                           only wasm check would miss that class of bug.
+test-browser-engine:
+	@echo "=== Browser Intl engine suite (VM guard + Chrome dart2js + dart2wasm) ==="
+	@mkdir -p $(TEST_RESULTS_DIR)
+	@$(DART) test -p vm -p chrome -c chrome:dart2js -c chrome:dart2wasm $(TIMEOUT) test/browser_engine/ --file-reporter json:$(TEST_RESULTS_DIR)/browser-engine.json
 
 # ═══════════════════════════════════════════════════════════════════
 # § 3b — Example app (journeys + integration smoke + release verify)
@@ -300,7 +316,10 @@ LEAN_EXAMPLE_LOCALES := und,en,en-US,de,fr,hi,ja,ar,th,sv,tr,zh-Hant
 
 postcards-example-lean:
 	@echo "=== Slicing postcards for example_lean (markers=kit) ==="
-	@cd example_lean && $(DART) run icu_kit:slice \
+	@# example_lean is a Flutter app (integration_test etc.), so resolve + run
+	@# the slice tool through Flutter — bare `dart run` can't see the Flutter SDK
+	@# deps and fails pub resolution. Matches every other example_lean target.
+	@cd example_lean && $(FLUTTER) pub get && $(FLUTTER) pub run icu_kit:slice \
 		--locales=$(LEAN_EXAMPLE_LOCALES) --markers=kit --per-locale --out=assets/icu
 
 test-example-lean-matrix: postcards-example-lean

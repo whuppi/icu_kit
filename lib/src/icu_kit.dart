@@ -20,3 +20,6 @@
 
 export 'runtime/native/init.dart'
     if (dart.library.js_interop) 'runtime/web/init.dart';
+
+// The web-engine selector for `IcuKit.init(webEngine: ...)`.
+export 'runtime/web_engine.dart';

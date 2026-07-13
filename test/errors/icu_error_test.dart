@@ -37,6 +37,15 @@ void main() {
       expect(e.message, contains('macos-arm64'));
     });
 
+    test('IcuUnsupportedError carries capability + engine', () {
+      final e = IcuUnsupportedError('IcuBidi', engine: 'browser-intl');
+      expect(e.capability, 'IcuBidi');
+      expect(e.engine, 'browser-intl');
+      expect(e.message, contains('IcuBidi'));
+      expect(e.message, contains('browser-intl'));
+      expect(e, isA<IcuError>());
+    });
+
     test('exhaustive switch compiles', () {
       // This test exists to lock in the sealed contract: every IcuError
       // subtype MUST be handled. If a new subtype is added without updating
@@ -48,6 +57,7 @@ void main() {
         IcuMissingDataError() => 'missingData',
         IcuOptionError() => 'option',
         IcuLoadError() => 'platform',
+        IcuUnsupportedError() => 'unsupported',
         IcuIdnaError() => 'idna',
       };
 
@@ -59,6 +69,10 @@ void main() {
       );
       expect(describe(IcuOptionError('o', 1)), 'option');
       expect(describe(IcuLoadError('p', null)), 'platform');
+      expect(
+        describe(IcuUnsupportedError('c', engine: 'browser-intl')),
+        'unsupported',
+      );
       expect(
         describe(IcuIdnaError(IcuIdnaErrorKind.invalid, 'bad', 'toAscii')),
         'idna',

@@ -16,6 +16,7 @@ final class IcuLocale {
       final loc = icu.Locale.fromString(tag);
       return IcuLocale._(loc);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       // The catch stays broad because the web binding can only throw a raw
       // JS Error on a bad tag — but the cause travels, so a non-parse
       // failure (a missing symbol, an FFI fault) stays diagnosable.

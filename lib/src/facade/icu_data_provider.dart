@@ -40,6 +40,7 @@ final class IcuDataProvider {
     try {
       return IcuDataProvider._(icu.DataProvider.fromByteSlice(bytes));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Failed to construct DataProvider from blob bytes: $e',
         marker: 'DataProvider.fromByteSlice',

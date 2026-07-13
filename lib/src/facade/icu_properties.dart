@@ -213,6 +213,7 @@ final class IcuPropertySet {
     try {
       return IcuPropertySet._(_buildSet(property));
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Property set unavailable for ${property.name}: $e',
         marker: 'CodePointSetData.${property.name}',

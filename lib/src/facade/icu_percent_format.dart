@@ -61,6 +61,7 @@ final class IcuPercentFormat {
       );
       return IcuPercentFormat._(formatter);
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Percent formatter unavailable for $locale: $e',
         locale: locale,

@@ -44,6 +44,33 @@ Never `git push --mirror` the fork: mirror mode deletes every remote ref
 that doesn't exist locally, including `main` and any patch branch not
 currently checked out.
 
+### Disable Actions on the fork
+
+The vendored fork is consumed as **source** — this repo's own CI
+(`make analyze` / `make check` / the test targets) is the gate. The fork's
+inherited upstream workflows (Release, language-binding CI, CodeQL, OpenSSF
+Scorecard, scheduled scans) validate nothing this repo uses. On the fork, once:
+
+**Settings → Actions → General → "Disable actions for this repository".**
+
+- **Free-tier drain.** Public-repo Actions are free but not unthrottled — a
+  fork's heavy Rust/scan pipelines burn org-wide runner allocation and can
+  throttle the whole org's hosted runners (every repo's jobs stuck "Waiting for
+  a runner"). ICU4X's upstream pipelines are especially heavy.
+- **Accidental publish.** §1 pushes the patch branch and an `icu@*` tag to the
+  fork on every bump; an upstream `on: push tags` Release pipeline fires on that
+  tag and can cut a GitHub release / publish from your mirror. Disabling
+  defuses it.
+- **Off by default.** The fork is home; upstream is just the base. Routine fork
+  work — patches, rebases, tag-moves — never needs the fork's own CI; this
+  repo's CI is the gate. The only exception is a deliberate, standalone upstream
+  PR (occasional, never during a fix): flip Actions on for that one PR, then
+  back off. Off is the resting state.
+
+Disable at the **setting** level — never delete the workflow YAMLs. Deleting
+them diverges the mirror from upstream and breaks the clean rebase-on-tag in
+§1; the files stay byte-identical to upstream and just never fire.
+
 ### The marker discipline
 
 The in-file markers are the authoritative inventory of what we patch —
@@ -390,6 +417,16 @@ Test by running a fresh `fvm dart test` — the build hook picks up the new tool
 - Opaques are `extension type X._(JSObject _self) implements JSObject` with a `fromDispatch` factory. Binding enums are Dart enums with a `toJs()` doing the module lookup. Structs are extension types whose factory builds the plain JS options object.
 - Extension types cannot declare `toString`/`hashCode`/`==` — expose the value under a plain shared name instead (native gets a one-line extension in `runtime/native/extras.dart`, the mirror declares the same member; `Locale.asBcp47` is the precedent).
 - **On an icu4x submodule bump:** rerun the regen tools, then run the chrome suite — its failures point at exactly the mirrors whose JS names or shapes changed.
+
+## §5c — browser Intl engine (runtime/web_intl/)
+
+`lib/src/runtime/web_intl/` is the browser Intl engine: a Dart-built module object served off `globalThis.Intl` instead of the WASM module, built by `buildBrowserIntlModule()` and installed at the same `IcuKit.module` seam by `IcuKit.init(webEngine: WebEngine.browserIntl)` (which deferred-loads this directory). One file per facade family (`locale.dart`, `number_format.dart`, …, `datetime.dart`), each overriding throw-all defaults for the classes it can serve. Rules:
+
+- **The web binding + dispatch are the canonical shape.** Every class the browser module registers must match what `lib/src/runtime/web/{bindings,dispatch.g.dart}` reaches via `IcuKit.module.getProperty('X')` — same class name, same static/ctor/method names, same arg order. When the binding calls a static `createYmd(locale, length, …)`, the browser module's `DateFormatter` registers a `createYmd` taking those args in that order.
+- **The drift guard is the completeness radar.** `test/browser_engine/contract_guard_test.dart` (VM) derives the full class-name set from the binding source — direct `getProperty('X')` literals plus the two helper indirections (`_fromIntegerValue('X', …)`, `_jsEnum('X', …)`) — and asserts it equals the committed snapshot (`surface_snapshot.g.dart`). The chrome twin asserts the built module resolves every name. **If a binding adds a class the shim doesn't register, the guard fails** — it would otherwise be a silent browser crash (`getProperty` on an unregistered class).
+- **On a binding change that adds/renames a module class:** regenerate the snapshot (`fvm dart run tool/browser_engine/gen_surface_snapshot.dart`), update the two hardcoded counts in the guard tests, add the class to `kAllClasses` in `throwing.dart` (so it gets a throw-all default), then either implement it in the matching family file or leave it throw-all (a documented gap). If the binding adds a **new** indirection helper (not `_fromIntegerValue` / `_jsEnum`), extend the extractor's `_helperClassArg` pattern too, or the guard will miss the helper's literals. The extractor + generator live in `tool/browser_engine/` (dart:io tooling); the chrome guards reach the module through `test/browser_engine/module_probe.dart` (conditional loader; its web half is the one browser-only file, registered in the Makefile `test-guards` allowlist).
+- **Behavior is verified per family, not by the guard.** The guard only proves every class resolves; the `*_chrome_test.dart` suites prove each family formats correctly and that engine-gap methods raise `IcuUnsupportedError`. A class present only as a throw-all passes the guard yet is behaviorally a gap — the family test is what documents the real coverage.
+- **The suite runs on BOTH web compilers.** `make test-browser-engine` runs Chrome under `dart2js` AND `dart2wasm` (`-c chrome:dart2js -c chrome:dart2wasm`). The shim is pure `js_interop`, and a pattern can compile clean yet diverge at runtime between the two compilers (e.g. how a `Symbol` property key marshals). When a family uses a new interop shape, probe it under `dart2wasm` before relying on it — a green `dart2js` run alone proves nothing about the wasm build the package also ships.
 
 ## §6 — Cut a release
 

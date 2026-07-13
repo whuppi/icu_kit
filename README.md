@@ -80,6 +80,26 @@ Nothing to do. On iOS, Android, macOS, Windows, and Linux, the build hook downlo
 
 ### Web
 
+Web runs on one of two engines — **pick one**, the facade API is the same either way. **ICU4X mode** (default) ships ICU4X for full coverage and identical output everywhere; **browser Intl mode** serves the facades off the browser's own `Intl` for a zero-byte bundle and the ECMA-402 subset.
+
+<details>
+<summary><b>🧩 which mode should I pick?</b></summary>
+
+<br>
+
+|  | ICU4X mode (default) | Browser Intl mode |
+|---|---|---|
+| **Engine** | ICU4X compiled to WebAssembly | the browser's built-in `Intl` |
+| **Download** | ~19 MB (or ~2.1 MB lean) | **0 bytes** |
+| **Output** | identical to native and to every browser | tracks each browser's CLDR version, so it can differ between browsers |
+| **Coverage** | everything icu_kit does | the ECMA-402 subset (the capability matrix below lists exactly what) |
+
+Turn each on in its subsection below. Pick ICU4X mode when you want the full Unicode surface or "the same input formats the same everywhere." Pick browser Intl mode when a zero-byte web bundle matters more than full coverage. The facades are identical either way, and native always runs the full ICU4X engine.
+
+</details>
+
+#### ICU4X mode (default)
+
 Web can't auto-download native assets, so run setup once. It fetches the prebuilt WASM engine and installs the JS bindings into `web/icu_kit/`. Run it again after any `pub upgrade`, since the asset is tied to the package version:
 
 ```sh
@@ -105,7 +125,7 @@ flutter pub run icu_kit:setup --force <target> # re-resolve (debugging)
 </details>
 
 <details>
-<summary><b>🧩 wait — why does web need a setup step?</b></summary>
+<summary><b>🧩 wait — why does web need a setup step in ICU4X mode?</b></summary>
 
 <br>
 
@@ -118,6 +138,56 @@ you're on a git checkout (that path needs the Rust toolchain and a
 
 This will go away when Dart/Flutter adds WASM/JS asset support to
 build hooks. Tracking: [dart-lang/native#988](https://github.com/dart-lang/native/issues/988)
+
+</details>
+
+#### Browser Intl mode (zero download)
+
+No setup, no WASM. Pass `webEngine: WebEngine.browserIntl` to the same `IcuKit.init` you'd call anywhere, and the facades run on the browser's own `Intl`:
+
+```dart
+import 'package:icu_kit/icu_kit.dart';
+
+void main() async {
+  await IcuKit.init(webEngine: WebEngine.browserIntl);
+
+  // Same API as every other platform — nothing downloaded.
+  print(IcuNumberFormat.decimal(locale: 'en-US').format(1234567.89));
+}
+```
+
+Same `IcuKit.init` as everywhere; native ignores `webEngine`, so shared code can pass it on every platform.
+
+Browser Intl mode covers the ECMA-402 core; what the browser can't do raises `IcuUnsupportedError` — the capability matrix below lists exactly what.
+
+<details>
+<summary><b>🧰 browser Intl mode capability matrix</b></summary>
+
+<br>
+
+`FULL` works completely. `PARTIAL` means the common path works but some options have no `Intl` equivalent. `THROW` means it raises `IcuUnsupportedError` (no browser API).
+
+| Facade family | ICU4X mode | Browser Intl mode | Note |
+|---|:---:|:---:|---|
+| Locale (parse / canonicalize / maximize / RTL) | FULL | FULL | fallback chain is PARTIAL (single-step, no CLDR parent walk) |
+| Plural rules | FULL | PARTIAL | number-parsed operands lose explicit trailing zeros (`1.0`) |
+| Decimal numbers | FULL | FULL | string path preserves precision beyond `double` |
+| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100); units outside the ECMA-402 set (e.g. `furlong`) THROW |
+| Date / Time / Date+Time | FULL | PARTIAL | `alignment` (column padding) has no `Intl` control; `-u-ca-` / `-u-nu-` / `-u-hc-` extensions work |
+| Zoned + standalone time zone | FULL | PARTIAL | `location` / `exemplarCity` styles THROW |
+| Lists | FULL | FULL | |
+| Collation | FULL | PARTIAL | `quaternary` / `identical` strength, `caseLevel`, and non-punctuation `maxVariable` (under shifted) THROW — no `Intl.Collator` control |
+| Segmentation (grapheme / word / sentence) | FULL | FULL | `line` segmentation THROWs (`Intl.Segmenter` has no line mode) |
+| Casing (lower / upper) | FULL | PARTIAL | `fold` / `foldTurkic` / `titlecase` THROW (no browser API) |
+| Normalization (NFC/NFD/NFKC/NFKD) | FULL | FULL | |
+| Relative time | FULL | FULL | |
+| Display names (region / locale) | FULL | PARTIAL | `menu` style falls back to `long` |
+| Calendar arithmetic object (`IcuCalendar` / `IcuCalendarDate`) | FULL | THROW | no browser calendar math; *formatting* non-Gregorian calendars still works via `-u-ca-` (see Date row) |
+| Bidi | FULL | THROW | no browser bidi API |
+| Unicode properties / property names | FULL | THROW | no browser property-lookup API |
+| Locale exemplars | FULL | THROW | no browser API |
+| IDNA | FULL | THROW | no spec-grade browser API |
+| Data layer (`IcuData.lazy` / `composite`) | FULL | THROW | the browser ships the data; only `bundled` applies |
 
 </details>
 
@@ -706,20 +776,16 @@ IcuData.composite([
 
 ## Platform support
 
-Same public API on every platform. Conditional imports decide the underlying mechanism at compile time.
+Same public API on all six platforms; conditional imports pick the mechanism at compile time.
 
-| Platform | Backend | Status |
-|---|---|:---:|
-| iOS | `dart:ffi` → `libicu_capi.dylib` | ✓ |
-| Android | `dart:ffi` → `libicu_capi.so` | ✓ |
-| macOS | `dart:ffi` → `libicu_capi.dylib` | ✓ |
-| Linux | `dart:ffi` → `libicu_capi.so` | ✓ |
-| Windows | `dart:ffi` → `icu_capi.dll` | ✓ |
-| Web | `dart:js_interop` → `icu_capi.wasm` | ✓ |
+| Platform | Engine |
+|---|---|
+| iOS · Android · macOS · Linux · Windows | `dart:ffi` → ICU4X (the build hook bundles the native library) |
+| Web | `dart:js_interop` → ICU4X mode (WebAssembly) or browser Intl mode — see [Web](#web) |
 
 ### Which browsers?
 
-Every modern browser. The web backend is a WebAssembly module (`wasm32`) loaded through `dart:js_interop` — no threads, no SharedArrayBuffer, no cross-origin-isolation headers required. Chrome, Firefox, Safari, and Edge have all shipped the needed WASM + BigInt support for years. The engine is single-threaded, so it works the same whether or not the page is cross-origin isolated.
+Every modern browser — Chrome, Firefox, Safari, Edge. Neither web engine needs threads, `SharedArrayBuffer`, or cross-origin-isolation headers. ICU4X mode is a single-threaded `wasm32` module loaded via `dart:js_interop`; browser Intl mode uses the browser's own `Intl`. Both have shipped in every modern browser for years.
 
 ---
 
@@ -731,9 +797,7 @@ On capabilities, icu_kit is a superset of the Dart alternatives: everything they
 
 **"I already use `package:intl`."** Keep it — for what it's for. Message translation (ARB catalogs, `Intl.message`) is a different job, and icu_kit doesn't do it; the two run side by side. For *formatting*, `intl` covers common numbers and dates, and the moment you need more — currency long names, time zones, non-Gregorian calendars, non-Latin numbering, segmentation, locale-aware casing, normalization, bidi — that's what icu_kit is for.
 
-**"On web, `Intl.*` is free."** True, and zero bytes is hard to argue with (it also has `formatToParts`, which ICU4X doesn't expose yet). The costs: it's web-only, and its output changes with each user's browser engine and that engine's CLDR version. Reach for icu_kit when you also ship native, or when "the same input formats the same everywhere" matters.
-
-**"Isn't [`intl4x`](https://pub.dev/packages/intl4x) the official one?"** Yes — the Dart team's package, currently experimental. It runs ICU4X on native but delegates to the browser's `Intl` on web, so the same value can format differently on native and web. Every capability it has exists in icu_kit too; icu_kit adds the rest of the Unicode surface, identical output on every platform including web, and the lean-binary data dial. What intl4x offers instead: official backing, and a smaller web bundle (no engine shipped).
+**"Isn't [`intl4x`](https://pub.dev/packages/intl4x) the official one?"** Yes — the Dart team's package, currently experimental. On web it always delegates to the browser's `Intl`, so a value can format differently on native and web with no way to opt out. icu_kit gives you that same zero-engine web path ([browser Intl mode](#web)) *and* a ICU4X mode with identical output everywhere — you pick per app. On top of that, icu_kit adds the rest of the Unicode surface and the lean-binary data dial. What intl4x offers instead: official backing.
 
 **"Why not the raw [`icu4x`](https://pub.dev/packages/icu4x) bindings?"** That's Unicode's own package, published straight from the ICU4X repo — same engine, official packaging. What it ships is the machine-generated API with no facade layer (`DateTimeLength.Medium`, `Locale.fromString`), no web support yet, and one binary shape: a prebuilt library with all CLDR data baked in, which its README puts at about 15 MB added to your app on most platforms (tree-shaking of unused APIs currently needs a dev-channel Dart flag, Linux only). The right pick if you want the official artifact and will build your own ergonomics on top — intl4x does exactly that. icu_kit is that layer, already built: typed facades, loud data errors, web via WebAssembly, the lean-binary data dial, docs.
 

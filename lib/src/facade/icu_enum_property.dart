@@ -140,6 +140,7 @@ final class IcuGeneralCategoryMap {
         dispatch.codePointMapData8GeneralCategory(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'GeneralCategory map unavailable: $e',
         marker: 'CodePointMapData8.generalCategory',
@@ -211,6 +212,7 @@ final class IcuScriptMap {
     try {
       return IcuScriptMap._(dispatch.codePointMapData16Script());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Script map unavailable: $e',
         marker: 'CodePointMapData16.script',
@@ -235,6 +237,7 @@ final class IcuBidiClassMap {
     try {
       return IcuBidiClassMap._(dispatch.codePointMapData8BidiClass());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'BidiClass map unavailable: $e',
         marker: 'CodePointMapData8.bidiClass',
@@ -257,6 +260,7 @@ final class IcuLineBreakMap {
     try {
       return IcuLineBreakMap._(dispatch.codePointMapData8LineBreak());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'LineBreak map unavailable: $e',
         marker: 'CodePointMapData8.lineBreak',
@@ -279,6 +283,7 @@ final class IcuWordBreakMap {
     try {
       return IcuWordBreakMap._(dispatch.codePointMapData8WordBreak());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'WordBreak map unavailable: $e',
         marker: 'CodePointMapData8.wordBreak',
@@ -301,6 +306,7 @@ final class IcuSentenceBreakMap {
     try {
       return IcuSentenceBreakMap._(dispatch.codePointMapData8SentenceBreak());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'SentenceBreak map unavailable: $e',
         marker: 'CodePointMapData8.sentenceBreak',
@@ -325,6 +331,7 @@ final class IcuGraphemeClusterBreakMap {
         dispatch.codePointMapData8GraphemeClusterBreak(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'GraphemeClusterBreak map unavailable: $e',
         marker: 'CodePointMapData8.graphemeClusterBreak',
@@ -351,6 +358,7 @@ final class IcuEastAsianWidthMap {
     try {
       return IcuEastAsianWidthMap._(dispatch.codePointMapData8EastAsianWidth());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'EastAsianWidth map unavailable: $e',
         marker: 'CodePointMapData8.eastAsianWidth',
@@ -375,6 +383,7 @@ final class IcuHangulSyllableTypeMap {
         dispatch.codePointMapData8HangulSyllableType(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'HangulSyllableType map unavailable: $e',
         marker: 'CodePointMapData8.hangulSyllableType',
@@ -397,6 +406,7 @@ final class IcuJoiningTypeMap {
     try {
       return IcuJoiningTypeMap._(dispatch.codePointMapData8JoiningType());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'JoiningType map unavailable: $e',
         marker: 'CodePointMapData8.joiningType',
@@ -424,6 +434,7 @@ final class IcuCanonicalCombiningClassMap {
         dispatch.codePointMapData8CanonicalCombiningClass(),
       );
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'CanonicalCombiningClass map unavailable: $e',
         marker: 'CodePointMapData8.canonicalCombiningClass',

@@ -233,6 +233,7 @@ IcuZonedDateTimeFormat _build({
       _buildZoned(locale, loc.ffi, zoneStyle, inner),
     );
   } catch (e) {
+    if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
     throw IcuDataError(
       'Zoned date-time formatter unavailable for $locale: $e',
       locale: locale,

@@ -46,6 +46,7 @@ final class IcuNormalizer {
         ),
       };
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError(
         'Normalizer unavailable for ${form.name}: $e',
         marker: 'Normalizer.${form.name}',

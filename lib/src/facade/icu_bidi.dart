@@ -26,6 +26,7 @@ final class IcuBidi {
     try {
       return IcuBidi._(dispatch.bidiDefault());
     } catch (e) {
+      if (e is IcuUnsupportedError) rethrow; // engine gap, not missing data
       throw IcuDataError('Bidi unavailable: $e', marker: 'Bidi');
     }
   }

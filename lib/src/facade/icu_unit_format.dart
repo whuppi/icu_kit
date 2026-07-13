@@ -5,6 +5,7 @@ import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
 import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — locale-aware unit formatting.
 ///
@@ -102,6 +103,14 @@ final class IcuUnitFormat {
   /// (e.g. `"1 hour"` / `"2 hours"` in en-US).
   @experimental
   String format(num value) => _ffi.format(toDecimalFfi(value));
+
+  /// EXPERIMENTAL — format [value] into typed parts (integer / group /
+  /// decimal / fraction, the unit name as a single `unit` part, spacing as
+  /// `literal`), mirroring ECMA-402 `formatToParts`. Concatenating every
+  /// part's `value` reproduces [format].
+  @experimental
+  List<IcuNumberPart> formatToParts(num value) =>
+      partsToList(_ffi.formatToParts(toDecimalFfi(value)));
 
   /// EXPERIMENTAL — the CLDR unit identifier this formatter is pinned to.
   @experimental

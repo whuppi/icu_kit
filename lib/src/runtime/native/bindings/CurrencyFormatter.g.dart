@@ -68,6 +68,16 @@ final class CurrencyFormatter implements ffi.Finalizable {
     return write.finalize();
   }
 
+  /// Format `value` with `currency_code` into typed parts (ECMA-402
+  /// `formatToParts` shape): the symbol as a `currency` part, the number
+  /// as integer / group / decimal / fraction. Returns an EMPTY part list
+  /// for an invalid currency code (same as `format`'s empty output).
+  FormattedNumberParts formatToParts(Decimal value, String currencyCode) {
+    final temp = _FinalizedArena();
+    final result = _icu4x_CurrencyFormatter_format_to_parts_mv1(_ffi, value._ffi, currencyCode._utf8AllocIn(temp.arena));
+    return FormattedNumberParts._fromFfi(result, []);
+  }
+
 }
 
 @_DiplomatFfiUse('icu4x_CurrencyFormatter_destroy_mv1')
@@ -89,5 +99,10 @@ external _ResultOpaqueInt32 _icu4x_CurrencyFormatter_create_with_width_with_prov
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _SliceUtf8, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_format_mv1')
 // ignore: non_constant_identifier_names
 external void _icu4x_CurrencyFormatter_format_mv1(ffi.Pointer<ffi.Opaque> self, ffi.Pointer<ffi.Opaque> value, _SliceUtf8 currencyCode, ffi.Pointer<ffi.Opaque> write);
+
+@_DiplomatFfiUse('icu4x_CurrencyFormatter_format_to_parts_mv1')
+@ffi.Native<ffi.Pointer<ffi.Opaque> Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _SliceUtf8)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_format_to_parts_mv1')
+// ignore: non_constant_identifier_names
+external ffi.Pointer<ffi.Opaque> _icu4x_CurrencyFormatter_format_to_parts_mv1(ffi.Pointer<ffi.Opaque> self, ffi.Pointer<ffi.Opaque> value, _SliceUtf8 currencyCode);
 
 // dart format on

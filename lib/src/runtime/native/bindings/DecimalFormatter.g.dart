@@ -75,6 +75,13 @@ final class DecimalFormatter implements ffi.Finalizable {
     return write.finalize();
   }
 
+  /// Format `value` into typed parts (integer / group / decimal /
+  /// fraction / sign), mirroring ECMA-402 `formatToParts`.
+  FormattedNumberParts formatToParts(Decimal value) {
+    final result = _icu4x_DecimalFormatter_format_to_parts_mv1(_ffi, value._ffi);
+    return FormattedNumberParts._fromFfi(result, []);
+  }
+
 }
 
 @_DiplomatFfiUse('icu4x_DecimalFormatter_destroy_mv1')
@@ -101,5 +108,10 @@ external _ResultOpaqueInt32 _icu4x_DecimalFormatter_create_with_manual_data_mv1(
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_DecimalFormatter_format_mv1')
 // ignore: non_constant_identifier_names
 external void _icu4x_DecimalFormatter_format_mv1(ffi.Pointer<ffi.Opaque> self, ffi.Pointer<ffi.Opaque> value, ffi.Pointer<ffi.Opaque> write);
+
+@_DiplomatFfiUse('icu4x_DecimalFormatter_format_to_parts_mv1')
+@ffi.Native<ffi.Pointer<ffi.Opaque> Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_DecimalFormatter_format_to_parts_mv1')
+// ignore: non_constant_identifier_names
+external ffi.Pointer<ffi.Opaque> _icu4x_DecimalFormatter_format_to_parts_mv1(ffi.Pointer<ffi.Opaque> self, ffi.Pointer<ffi.Opaque> value);
 
 // dart format on

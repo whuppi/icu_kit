@@ -17,11 +17,14 @@ test_fixtures/
 assets/banner_dark.png
 assets/banner_light.png
 
-# The vendored ICU4X submodule is far past pub.dev's archive limit (unlike
-# pdf_manipulator's vendor, which ships in its tarball). pub.dev consumers
-# get hash-verified prebuilt binaries via the hook's download waterfall;
-# source builds are for git/path checkouts, where the submodule is real.
-vendor/
+# The vendored ICU4X source SHIPS in the tarball, same as pdf_manipulator's
+# vendor. Measured: ~35 MB compressed archive with vendor included, under
+# pub.dev's 100 MB limit. This is the survivability guarantee: even if the
+# GitHub org, repos, and release binaries all vanish, a pub.dev install
+# still compiles from source (the hook's waterfall step 3) and can still
+# slice postcards. Downloads stay the fast path; vendor is the disaster
+# fallback. At release time the whuppi/ci release tool de-registers the
+# submodule into the stamped tag, so the tarball carries raw tracked files.
 
 # The lean example is a build-config shell (its pubspec IS the lean
 # switch) that re-runs example/'s code + suites — repo tooling, not a

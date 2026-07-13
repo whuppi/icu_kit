@@ -5,6 +5,7 @@ import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
 import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — locale-aware percent formatting.
 ///
@@ -77,6 +78,13 @@ final class IcuPercentFormat {
   /// (`0.12` → `"12%"`), multiply by 100 in Dart first.
   @experimental
   String format(num value) => _ffi.format(toDecimalFfi(value));
+
+  /// EXPERIMENTAL — format [value] into typed parts (integer / group /
+  /// decimal / fraction / percentSign / sign), mirroring ECMA-402
+  /// `formatToParts`. Concatenating every part's `value` reproduces [format].
+  @experimental
+  List<IcuNumberPart> formatToParts(num value) =>
+      partsToList(_ffi.formatToParts(toDecimalFfi(value)));
 }
 
 /// EXPERIMENTAL — display style for [IcuPercentFormat].

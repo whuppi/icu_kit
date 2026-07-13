@@ -21,6 +21,24 @@ extension type Decimal._(JSObject _self) implements JSObject {
       IcuKit.module.getProperty<JSObject>('Decimal'.toJS);
 }
 
+/// Web mirror of the FFI `FormattedNumberParts`.
+extension type FormattedNumberParts._(JSObject _self) implements JSObject {
+  /// Wrap a raw JS handle yielded by a formatter's `formatToParts`.
+  factory FormattedNumberParts.fromDispatch(JSObject o) =
+      FormattedNumberParts._;
+
+  /// The number of parts.
+  int get partCount => _self.getProperty<JSNumber>('partCount'.toJS).toDartInt;
+
+  /// The ECMA-402 type name of the part at [index], or null out of bounds.
+  String? partTypeAt(int index) =>
+      _self.callMethod<JSString?>('partTypeAt'.toJS, index.toJS)?.toDart;
+
+  /// The substring of the part at [index], or null out of bounds.
+  String? partValueAt(int index) =>
+      _self.callMethod<JSString?>('partValueAt'.toJS, index.toJS)?.toDart;
+}
+
 /// Web mirror of the FFI `DecimalFormatter`.
 extension type DecimalFormatter._(JSObject _self) implements JSObject {
   /// Wrap a raw JS handle yielded by dispatch.
@@ -29,6 +47,12 @@ extension type DecimalFormatter._(JSObject _self) implements JSObject {
   /// Format [value] with locale digits and separators.
   String format(Decimal value) =>
       _self.callMethod<JSString>('format'.toJS, value).toDart;
+
+  /// Format [value] into typed parts.
+  FormattedNumberParts formatToParts(Decimal value) =>
+      FormattedNumberParts.fromDispatch(
+        _self.callMethod<JSObject>('formatToParts'.toJS, value),
+      );
 }
 
 /// Web mirror of the FFI `DecimalGroupingStrategy` enum. `toJs()` is public

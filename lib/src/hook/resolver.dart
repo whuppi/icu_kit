@@ -19,10 +19,12 @@
 /// with no pinned hash and no source to rebuild from — is used only with a
 /// loud warning, never silently.
 ///
-/// Unlike pdf_manipulator, icu_kit's vendored ICU4X source is too large
-/// for the pub archive, so a pub.dev install has NO vendor source: the
-/// download step is the primary path for pub consumers, and steps 3-4
-/// exist for git/submodule consumers and contributors.
+/// The vendored ICU4X source ships in the pub tarball (same model as
+/// pdf_manipulator — the release tool de-registers the submodule into the
+/// stamped tag, so the archive carries raw source). Download stays the
+/// primary path for pub consumers because it needs no Rust toolchain;
+/// step 3 is the real fallback for everyone, so a pub.dev install still
+/// builds even if GitHub Releases disappear.
 library;
 
 import 'dart:io';

@@ -12,10 +12,10 @@ ECMA-402 / Unicode capabilities exposed via the public facade.
 |---|---|---|:---:|
 | **Locale** | `IcuLocale`, `IcuLocaleCanonicalizer`, `IcuLocaleExpander`, `IcuLocaleDirectionality`, `IcuLocaleFallbacker` | Parse + canonicalize + maximize/minimize + RTL/LTR + CLDR fallback chain | A |
 | **Plural rules** | `IcuPluralRules` | Cardinal + ordinal, every CLDR locale | A |
-| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat | A |
-| **Currency** | `IcuCurrencyFormat` | Symbol form + long form (plural-correct "1 US dollar" / "2 US dollars") | C ⚠ |
-| **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign | C ⚠ |
-| **Units** | `IcuUnitFormat` | CLDR unit identifier (e.g. `"kilometer-per-hour"`); long / short / narrow widths | C ⚠ |
+| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat, incl. `formatToParts` (typed part output) | A |
+| **Currency** | `IcuCurrencyFormat` | Symbol form + long form (plural-correct "1 US dollar" / "2 US dollars"); `formatToParts` (symbol/name → `currency` part) | C ⚠ |
+| **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign; `formatToParts` (→ `percentSign`, typed signs) | C ⚠ |
+| **Units** | `IcuUnitFormat` | CLDR unit identifier (e.g. `"kilometer-per-hour"`); long / short / narrow widths; `formatToParts` (unit name → one `unit` part) | C ⚠ |
 | **Date** | `IcuDateFormat` | 10 field-set constructors (ymd, md, ymde, mde, de, y, m, d, e, ym), length / alignment / year-style | A |
 | **Time** | `IcuTimeFormat` | length / time-precision / alignment | A |
 | **Date+Time** | `IcuDateTimeFormat` | 7 field sets (dt, mdt, ymdt, det, mdet, ymdet, et) | A |
@@ -119,7 +119,8 @@ Facades without per-row corpus (relative-time, currency, percent, unit, display 
 | Gap | Why deferred | Trigger |
 |---|---|---|
 | Tier C facades carry `@experimental` annotations | Upstream Rust API still being redesigned (PR #7789) | Upstream lands the unified `CurrencyDisplay` |
-| No formatToParts / resolvedOptions ECMA-402 introspection | ICU4X's Rust API doesn't expose part-level output today | Upstream exposes formatToParts |
+| `formatToParts` covers the NUMBER family only — date/time, list, and relative-time part output is not built yet | Only the number formatters have parts patches so far | Add per-formatter parts patches (same collect → flatten → gap-fill shape) |
+| No `resolvedOptions` ECMA-402 introspection | ICU4X's Rust API doesn't expose the resolved option bag | Upstream exposes it, or we derive it facade-side |
 | `Intl.Segmenter.containing` / `.before` / `.after` helpers | ICU4X iterator-only model | Add Dart-side helpers without changing ICU4X |
 | Deprecated calendars (`japaneseExtended`, `iso8601`-only) | ICU4X 2.2 marks them deprecated | Tracking upstream removal in 2.3+ |
 | No automated staleness check for the icu4x submodule | Manual bumps are acceptable at a once-a-quarter cadence; a CI job that watches upstream tags and opens an issue is unbuilt | When bump cadence starts hurting |

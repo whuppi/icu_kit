@@ -27,6 +27,7 @@ lib/
     errors/                  — sealed IcuError hierarchy
     facade/                  — 31 single-source facades (one file each,
                                written once, compiled for both platforms)
+                               + icu_number_parts.dart (shared formatToParts model)
     runtime/                 — THE platform boundary: every platform quirk
                                lives here, nothing platform-shaped outside it
       bindings.dart          — binding-surface selector (native ⇄ web)
@@ -124,25 +125,30 @@ Backed by the `idna` Rust crate (servo/url, reqwest use the same). Not ICU4X. Lo
 
 ### Local IDL patches
 
-Where upstream's Diplomat IDL doesn't expose a feature we need, we add a local patch under `vendor/icu4x/ffi/capi/src/` on the submodule's `icu_kit/2.2.0-patches` branch. Each patch carries a removal trigger comment.
+Where upstream's Diplomat IDL doesn't expose a feature we need, we add a local patch under `vendor/icu4x/ffi/capi/src/` — and, for formatToParts, one patch under `vendor/icu4x/components/` — on the submodule's `icu_kit/2.2.0-patches` branch. Each patch carries a removal trigger comment.
 
 Why vendor at all: the Unicode Consortium's own `package:icu4x` ships the raw machine-generated bindings without the web packaging icu_kit needs, and icu_kit needs both worlds from one source. Vendoring + running Diplomat ourselves produces Dart AND JS bindings from one Rust source — the cost is this submodule and the build hook. The submodule pins a release tag, never a branch: a plural-rule update is a user-visible behavior change, so every ICU4X bump is an explicit, reviewable commit. When upstream ships web support, switching back is evaluated (the loss would be these IDL patches).
 
 | Patch | Exposes | Removal trigger |
 |---|---|---|
-| `currency_formatter.rs` | `CurrencyFormatter` + `LongCurrencyFormatter` + provider variants | Upstream PR #7789 lands the unified API |
-| `percent_formatter.rs` | `PercentFormatter` + provider variant | Same as currency |
-| `units_formatter.rs` | `UnitsFormatter` + provider variant | Same as currency |
+| `formatted_parts.rs` | `FormattedNumberParts` opaque + the parts collector/flatten; `format_to_parts` on decimal/currency/percent/units | Upstream icu_capi exposes a parts-over-FFI surface |
+| `currency_formatter.rs` | `CurrencyFormatter` + `LongCurrencyFormatter` + provider variants + `format_to_parts` | Upstream PR #7789 lands the unified API |
+| `percent_formatter.rs` | `PercentFormatter` + provider variant + `format_to_parts` | Same as currency |
+| `units_formatter.rs` | `UnitsFormatter` + provider variant + `format_to_parts` | Same as currency |
+| `decimal.rs` (edit) | `DecimalFormatter::format_to_parts` | Upstream exposes decimal parts over FFI |
+| `components/…/percent/format.rs` (edit) | `write_to_parts` on `FormattedPercent` (typed number + sign parts) | Upstream percent formatter emits typed parts |
 | `relative_time_formatter.rs` | `RelativeTimeFormatter` (24 width × unit ctors) + 24 provider variants | `icu_experimental::relativetime` promoted into stable `icu` |
 | `idna_processor.rs` | `IdnaProcessor` + UTS #46 / Punycode codec | Upstream icu_capi exposes IDNA directly |
 | `bidi.rs` (edit) | Paragraph embedding level + reordered levels (UCD BidiCharacterTest columns 2 + 3) | Upstream exposes the reordered-levels accessors |
-| `lib.rs` (edit) | Registers the five facade modules | Falls away with the last facade patch |
+| `lib.rs` (edit) | Registers the facade + formatted_parts modules | Falls away with the last facade patch |
 | `Cargo.toml` (edit) | `tinystr` + `idna` deps behind `experimental` | Falls away with its consumers |
 | `build.rs` (edit) | Android 16 KB page-size link args (Google Play API 35+) | Upstream sets the alignment itself |
 
-The authoritative inventory is the markers, not this table: `grep -rl "icu_kit patch" ffi/capi/` inside the vendor.
+The authoritative inventory is the markers, not this table: `grep -rl "icu_kit patch" ffi/capi/ components/` inside the vendor.
 
 All four patched formatters now expose `*WithProvider` factory variants, so lean-binary mode (`bundleCldrData: false`) works for every facade. `IdnaProcessor` is locale-data-free; no provider needed.
+
+**The formatToParts pipeline.** ICU4X emits typed parts internally through `writeable::PartsWrite` (nested ranges — a GROUP nested inside an INTEGER), but the capi has no parts-over-FFI surface. `formatted_parts.rs` collects those ranges with a `PartsWrite` sink, then **flattens** them to ECMA-402's flat tiling: split each INTEGER at its GROUP boundaries, and fill every untyped gap per formatter kind (the currency symbol / `%` / unit name become `currency` / `percentSign` / `unit`, edge whitespace becomes `literal`, interior whitespace stays inside the core so "US dollar" is one part). The result is exposed as an opaque list of `(typeString, substring)` — substrings, never byte offsets, because Dart strings are UTF-16. Only percent needed a component patch (it had no `write_to_parts` at all); currency and units already flow their number parts through pattern interpolation, so the gap-fill types their symbol/name. The Dart facade maps the wire type strings to `IcuNumberPartType` and assembles `List<IcuNumberPart>`; the browser-Intl engine uses `Intl.NumberFormat.prototype.formatToParts` directly (its type strings are already ECMA-402).
 
 ---
 
@@ -161,9 +167,10 @@ hook/build.dart
   ├─ Detects target Rust triple from CodeConfig.
   ├─ RESOLVES the binary via the 5-step waterfall (§7): hash-verified
   │    cache → hash-verified GitHub Release download → cargo compile
-  │    from vendor → submodule init → error. pub.dev consumers download;
-  │    git/path checkouts compile (`cargo rustc --crate-type=cdylib
-  │    --release`, + simple_logger).
+  │    from vendor → submodule init → error. Download is the fast path;
+  │    compile works anywhere with a Rust toolchain — the vendor ships
+  │    in the pub tarball (`cargo rustc --crate-type=cdylib --release`,
+  │    + simple_logger).
   └─ Registers the .dylib/.so/.dll/.a as a code asset under
      `package:icu_kit/src/runtime/native/bindings/lib.g.dart`. The Diplomat-generated
      @Native symbols inside the bindings library resolve to that asset.
@@ -396,7 +403,7 @@ The composite row pair is what lets one `init` call run unchanged on both flavor
 
 ## 7. The build hook
 
-`hook/build.dart` is the package's only build orchestrator. It resolves the native binary through the same 5-step waterfall pdf_manipulator uses (`lib/src/hook/resolver.dart`): hash-verified cache → hash-verified download from GitHub Releases → compile from vendor source → submodule init + compile → explanatory error. pub.dev consumers download (the vendored ICU4X source is far past the pub archive limit, so it's `.pubignore`d — unlike pdf_manipulator's vendor); git/path checkouts compile from source, where dev version `0.0.0` skips the download step so cargo's fingerprint check owns freshness.
+`hook/build.dart` is the package's only build orchestrator. It resolves the native binary through the same 5-step waterfall pdf_manipulator uses (`lib/src/hook/resolver.dart`): hash-verified cache → hash-verified download from GitHub Releases → compile from vendor source → submodule init + compile → explanatory error. pub.dev consumers download first (no Rust toolchain needed); the vendored ICU4X source ships in the pub tarball (same model as pdf_manipulator — see `.pubignore` for the measured size), so compile-from-vendor is a real fallback for them too. Git/path checkouts compile from source, where dev version `0.0.0` skips the download step so cargo's fingerprint check owns freshness.
 
 Per hook invocation it:
 

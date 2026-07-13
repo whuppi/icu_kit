@@ -4,7 +4,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import '../init.dart';
-import 'number_format.dart' show Decimal;
+import 'number_format.dart' show Decimal, FormattedNumberParts;
 
 /// Web mirror of the FFI `PercentFormatter`.
 extension type PercentFormatter._(JSObject _self) implements JSObject {
@@ -14,6 +14,12 @@ extension type PercentFormatter._(JSObject _self) implements JSObject {
   /// Format [value] as a percentage (e.g. "42%" in en-US).
   String format(Decimal value) =>
       _self.callMethod<JSString>('format'.toJS, value).toDart;
+
+  /// Format [value] into typed parts.
+  FormattedNumberParts formatToParts(Decimal value) =>
+      FormattedNumberParts.fromDispatch(
+        _self.callMethod<JSObject>('formatToParts'.toJS, value),
+      );
 }
 
 /// Web mirror of the FFI `PercentDisplay` enum.

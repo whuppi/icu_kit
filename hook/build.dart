@@ -45,14 +45,16 @@
 //
 //   pub.dev consumer (icu_kit: ^X.Y.Z):
 //     Native: automatic via build hook. Downloads the prebuilt binary.
-//             The vendored ICU4X source is too large for the pub
-//             archive (unlike pdf_manipulator), so there is no
-//             source fallback — download is THE path.
+//             The vendored ICU4X source ships in the pub archive (same
+//             model as pdf_manipulator), so compile-from-vendor is the
+//             fallback when the download is unavailable (needs the
+//             Rust toolchain).
 //     Web:    manual `flutter pub run icu_kit:setup`.
 //             Downloads the WASM; the JS bindings ship in the package.
 //
 //   Git tag consumer (ref: vX.Y.Z):
-//     Same release binaries; submodule available for source builds.
+//     Same release binaries; the stamped tag carries the vendor as raw
+//     source (submodule de-registered), so source builds work directly.
 //
 //   Git branch consumer (ref: dev, version 0.0.0):
 //     Download skipped. Compiles from vendor source or inits
@@ -550,8 +552,9 @@ void _verifyBindings(Uri bindingsBarrel) {
 /// exist BEFORE the first build — never derive this list from build
 /// outputs, or caching goes circular and binaries go stale.
 ///
-/// The vendor walk only runs when the submodule is present (pub
-/// consumers have no vendor — the download path serves them).
+/// The vendor walk only runs when the vendor source is on disk. It
+/// always is for pub installs (the vendor ships in the tarball); it's
+/// absent only on a git clone without `--recursive`.
 void _trackDependencies({
   required BuildOutputBuilder output,
   required Uri packageRoot,

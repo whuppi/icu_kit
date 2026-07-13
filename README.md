@@ -132,9 +132,10 @@ flutter pub run icu_kit:setup --force <target> # re-resolve (debugging)
 Flutter's build system automatically downloads native binaries for
 iOS, Android, etc., but it doesn't support web assets (WASM, JS)
 yet. The setup command fills that gap: it downloads the pre-built
-WASM engine, or compiles it from the vendored Rust source when
-you're on a git checkout (that path needs the Rust toolchain and a
-`--recursive` clone — see [CONTRIBUTING](CONTRIBUTING.md)).
+WASM engine, or falls back to compiling it from the vendored Rust
+source, which ships in the package (that path needs the Rust
+toolchain; on a git checkout it also needs a `--recursive` clone —
+see [CONTRIBUTING](CONTRIBUTING.md)).
 
 This will go away when Dart/Flutter adds WASM/JS asset support to
 build hooks. Tracking: [dart-lang/native#988](https://github.com/dart-lang/native/issues/988)
@@ -171,8 +172,8 @@ Browser Intl mode covers the ECMA-402 core; what the browser can't do raises `Ic
 |---|:---:|:---:|---|
 | Locale (parse / canonicalize / maximize / RTL) | FULL | FULL | fallback chain is PARTIAL (single-step, no CLDR parent walk) |
 | Plural rules | FULL | PARTIAL | number-parsed operands lose explicit trailing zeros (`1.0`) |
-| Decimal numbers | FULL | FULL | string path preserves precision beyond `double` |
-| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100); units outside the ECMA-402 set (e.g. `furlong`) THROW |
+| Decimal numbers | FULL | FULL | string path preserves precision beyond `double`; `formatToParts` returns typed parts |
+| Currency / Percent / Units | FULL | PARTIAL | browser-varying; percent formats value as-is (no ×100); units outside the ECMA-402 set (e.g. `furlong`) THROW; `formatToParts` supported — a compound unit (`km/h`) is one `unit` part (browsers split it) |
 | Date / Time / Date+Time | FULL | PARTIAL | `alignment` (column padding) has no `Intl` control; `-u-ca-` / `-u-nu-` / `-u-hc-` extensions work |
 | Zoned + standalone time zone | FULL | PARTIAL | `location` / `exemplarCity` styles THROW |
 | Lists | FULL | FULL | |
@@ -241,6 +242,22 @@ Decimal, currency, percent, and units. Each is a separate facade because they ha
 print(IcuNumberFormat.decimal(locale: 'en-US').format(1234.5));   // "1,234.5"
 print(IcuNumberFormat.decimal(locale: 'de').format(1234.5));      // "1.234,5"
 print(IcuNumberFormat.decimal(locale: 'ja').format(1234567));     // "1,234,567"
+```
+
+```dart
+// formatToParts — the typed pieces behind the string (ECMA-402 shape).
+// Style the currency symbol differently from the digits, right-to-left aware.
+for (final part in IcuNumberFormat.decimal(locale: 'en-US').formatToParts(-1234.5)) {
+  print('${part.type.name}: "${part.value}"');
+}
+// minusSign: "-"
+// integer:   "1"
+// group:     ","
+// integer:   "234"
+// decimal:   "."
+// fraction:  "5"
+// Joining every part's value reproduces format() exactly. Works on every facade
+// (currency → a `currency` part, percent → `percentSign`, units → `unit`).
 ```
 
 ```dart
@@ -793,11 +810,11 @@ Every modern browser — Chrome, Firefox, Safari, Edge. Neither web engine needs
 
 icu_kit is built on ICU4X — the Unicode Consortium's modern Rust implementation of ICU, written by contributors from Google, Mozilla, Amazon, and others. 2.0 stable shipped May 2025; icu_kit tracks the 2.x line.
 
-On capabilities, icu_kit is a superset of the Dart alternatives: everything they format, it formats, on the same engine. What they genuinely offer is on other axes — zero bundle bytes, official backing, a lighter job. The questions you're probably asking:
+On capabilities, icu_kit is a superset of the Dart alternatives: everything they format, it formats, on the same engine. What they genuinely offer is on other axes — official backing, and a lighter native footprint for simple formatting (`package:intl` is pure Dart, no compiled engine). The questions you're probably asking:
 
 **"I already use `package:intl`."** Keep it — for what it's for. Message translation (ARB catalogs, `Intl.message`) is a different job, and icu_kit doesn't do it; the two run side by side. For *formatting*, `intl` covers common numbers and dates, and the moment you need more — currency long names, time zones, non-Gregorian calendars, non-Latin numbering, segmentation, locale-aware casing, normalization, bidi — that's what icu_kit is for.
 
-**"Isn't [`intl4x`](https://pub.dev/packages/intl4x) the official one?"** Yes — the Dart team's package, currently experimental. On web it always delegates to the browser's `Intl`, so a value can format differently on native and web with no way to opt out. icu_kit gives you that same zero-engine web path ([browser Intl mode](#web)) *and* a ICU4X mode with identical output everywhere — you pick per app. On top of that, icu_kit adds the rest of the Unicode surface and the lean-binary data dial. What intl4x offers instead: official backing.
+**"Isn't [`intl4x`](https://pub.dev/packages/intl4x) the official one?"** Yes — the Dart team's package, currently experimental. On web it always delegates to the browser's `Intl`, so a value can format differently on native and web with no way to opt out. icu_kit gives you that same zero-engine web path ([browser Intl mode](#web)) *and* an ICU4X mode with identical output everywhere — you pick per app. On top of that, icu_kit adds the rest of the Unicode surface and the lean-binary data dial. What intl4x offers instead: official backing.
 
 **"Why not the raw [`icu4x`](https://pub.dev/packages/icu4x) bindings?"** That's Unicode's own package, published straight from the ICU4X repo — same engine, official packaging. What it ships is the machine-generated API with no facade layer (`DateTimeLength.Medium`, `Locale.fromString`), no web support yet, and one binary shape: a prebuilt library with all CLDR data baked in, which its README puts at about 15 MB added to your app on most platforms (tree-shaking of unused APIs currently needs a dev-channel Dart flag, Linux only). The right pick if you want the official artifact and will build your own ergonomics on top — intl4x does exactly that. icu_kit is that layer, already built: typed facades, loud data errors, web via WebAssembly, the lean-binary data dial, docs.
 

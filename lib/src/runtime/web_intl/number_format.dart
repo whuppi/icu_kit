@@ -39,27 +39,75 @@ JSString _fmt(String tag, JSObject options, String s) => intlFormat(
   options,
 ).callMethod<JSString>('format'.toJS, s.toJS);
 
+// Wrap a Dart list of `(type, value)` parts in the shape the
+// FormattedNumberParts web mirror reads: a `partCount` property plus
+// `partTypeAt(i)` / `partValueAt(i)` methods. Shared by every formatter here.
+JSObject _wrapParts(List<(String, String)> parts) {
+  final o = JSObject()..setProperty('partCount'.toJS, parts.length.toJS);
+  JSString? typeAt(JSNumber index) {
+    final i = index.toDartInt;
+    return (i >= 0 && i < parts.length) ? parts[i].$1.toJS : null;
+  }
+
+  JSString? valueAt(JSNumber index) {
+    final i = index.toDartInt;
+    return (i >= 0 && i < parts.length) ? parts[i].$2.toJS : null;
+  }
+
+  o.setProperty('partTypeAt'.toJS, typeAt.toJS);
+  o.setProperty('partValueAt'.toJS, valueAt.toJS);
+  return o;
+}
+
+// An `Intl.NumberFormat.formatToParts` result (a JS array of `{type, value}`)
+// as a Dart part list. Intl already emits ECMA-402 type strings verbatim.
+List<(String, String)> _intlParts(JSArray<JSObject> parts) => [
+  for (final p in parts.toDart)
+    (
+      p.getProperty<JSString>('type'.toJS).toDart,
+      p.getProperty<JSString>('value'.toJS).toDart,
+    ),
+];
+
+/// Build an `Intl.NumberFormat` with [options] and return `formatToParts(s)`
+/// wrapped for the mirror.
+JSObject _fmtParts(String tag, JSObject options, String s) => _wrapParts(
+  _intlParts(
+    intlFormat(
+      'NumberFormat',
+      tag,
+      options,
+    ).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
+  ),
+);
+
 // ── Decimal + DecimalFormatter (STABLE) ──────────────────────────────────
 
 JSObject _decimalFormatter(JSObject locale, JSObject? strategy) {
   final tag = localeTag(locale);
   final grouping = _useGrouping(strategy);
   final o = JSObject();
+  JSObject options(String s) {
+    final k = _fractionDigits(s);
+    return jsOptions({
+      'useGrouping': grouping,
+      'minimumFractionDigits': k.toJS,
+      'maximumFractionDigits': k.toJS,
+    });
+  }
+
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    final k = _fractionDigits(s);
-    return _fmt(
-      tag,
-      jsOptions({
-        'useGrouping': grouping,
-        'minimumFractionDigits': k.toJS,
-        'maximumFractionDigits': k.toJS,
-      }),
-      s,
-    );
+    return _fmt(tag, options(s), s);
+  }
+
+  JSObject formatToParts(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return _fmtParts(tag, options(s), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
   return o;
 }
 
@@ -76,46 +124,58 @@ JSObject _currencyFormatter(JSObject locale, JSObject? width) {
   final display = _currencyDisplay(width);
   final o = JSObject();
   // Symbol form: currency code arrives at format time.
+  JSObject options(String s, JSString currencyCode) {
+    final k = _fractionDigits(s);
+    return jsOptions({
+      'style': 'currency'.toJS,
+      'currency': currencyCode,
+      'currencyDisplay': display.toJS,
+      'minimumFractionDigits': k.toJS,
+      'maximumFractionDigits': k.toJS,
+    });
+  }
+
   JSString format(JSObject decimal, JSString currencyCode) {
     final s = _decimalStr(decimal);
-    final k = _fractionDigits(s);
-    return _fmt(
-      tag,
-      jsOptions({
-        'style': 'currency'.toJS,
-        'currency': currencyCode,
-        'currencyDisplay': display.toJS,
-        'minimumFractionDigits': k.toJS,
-        'maximumFractionDigits': k.toJS,
-      }),
-      s,
-    );
+    return _fmt(tag, options(s, currencyCode), s);
+  }
+
+  JSObject formatToParts(JSObject decimal, JSString currencyCode) {
+    final s = _decimalStr(decimal);
+    return _fmtParts(tag, options(s, currencyCode), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
   return o;
 }
 
 JSObject _longCurrencyFormatter(JSObject locale, JSString currencyCode) {
   final tag = localeTag(locale);
   final o = JSObject();
+  JSObject options(String s) {
+    final k = _fractionDigits(s);
+    return jsOptions({
+      'style': 'currency'.toJS,
+      'currency': currencyCode,
+      'currencyDisplay': 'name'.toJS,
+      'minimumFractionDigits': k.toJS,
+      'maximumFractionDigits': k.toJS,
+    });
+  }
+
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    final k = _fractionDigits(s);
-    return _fmt(
-      tag,
-      jsOptions({
-        'style': 'currency'.toJS,
-        'currency': currencyCode,
-        'currencyDisplay': 'name'.toJS,
-        'minimumFractionDigits': k.toJS,
-        'maximumFractionDigits': k.toJS,
-      }),
-      s,
-    );
+    return _fmt(tag, options(s), s);
+  }
+
+  JSObject formatToParts(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return _fmtParts(tag, options(s), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
   return o;
 }
 
@@ -125,29 +185,32 @@ JSObject _longCurrencyFormatter(JSObject locale, JSString currencyCode) {
 // So format the plain number, then splice the locale's percent affix taken
 // from `formatToParts` — never pass value/100 through style:'percent'.
 
-// Resolve the locale's percent affix (the text before/after the number) ONCE,
-// at formatter construction — _percentFormatter captures the result in its
-// closure and reuses it for every format() call, so this probe formatter is
-// built once per formatter, never per value.
-(String, String) _percentAffix(String tag) {
+// Resolve the locale's percent affix as TYPED parts (the percentSign / literal
+// text before and after the number) ONCE, at formatter construction —
+// _percentFormatter captures the result and reuses it for every call. The
+// number is formatted separately (icu4x renders the value as-is, not ×100), so
+// the affix is spliced around it; the typed parts carry through to
+// formatToParts and the joined strings give the flat `format` output.
+(List<(String, String)> before, List<(String, String)> after)
+_percentAffixParts(String tag) {
   final parts = intlFormat(
     'NumberFormat',
     tag,
     jsOptions({'style': 'percent'.toJS}),
   ).callMethod<JSArray<JSObject>>('formatToParts'.toJS, (1).toJS).toDart;
-  final before = StringBuffer();
-  final after = StringBuffer();
+  final before = <(String, String)>[];
+  final after = <(String, String)>[];
   var seenNumber = false;
   for (final part in parts) {
     final type = part.getProperty<JSString>('type'.toJS).toDart;
     final value = part.getProperty<JSString>('value'.toJS).toDart;
     if (type == 'percentSign' || type == 'literal') {
-      (seenNumber ? after : before).write(value);
+      (seenNumber ? after : before).add((type, value));
     } else {
       seenNumber = true;
     }
   }
-  return (before.toString(), after.toString());
+  return (before, after);
 }
 
 JSObject _percentFormatter(JSObject locale, JSObject? display) {
@@ -156,24 +219,39 @@ JSObject _percentFormatter(JSObject locale, JSObject? display) {
   // ExplicitSign → always show sign. Approximate has no Intl equivalent;
   // rendered as Standard (documented PARTIAL).
   final signDisplay = (mode == 'ExplicitSign' ? 'always' : 'auto').toJS;
-  final (before, after) = _percentAffix(tag);
+  final (beforeParts, afterParts) = _percentAffixParts(tag);
+  final before = beforeParts.map((p) => p.$2).join();
+  final after = afterParts.map((p) => p.$2).join();
   final o = JSObject();
+  JSObject numOptions(String s) {
+    final k = _fractionDigits(s);
+    return jsOptions({
+      'signDisplay': signDisplay,
+      'minimumFractionDigits': k.toJS,
+      'maximumFractionDigits': k.toJS,
+    });
+  }
+
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    final k = _fractionDigits(s);
-    final num = _fmt(
-      tag,
-      jsOptions({
-        'signDisplay': signDisplay,
-        'minimumFractionDigits': k.toJS,
-        'maximumFractionDigits': k.toJS,
-      }),
-      s,
-    ).toDart;
+    final num = _fmt(tag, numOptions(s), s).toDart;
     return '$before$num$after'.toJS;
   }
 
+  JSObject formatToParts(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    final numParts = _intlParts(
+      intlFormat(
+        'NumberFormat',
+        tag,
+        numOptions(s),
+      ).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
+    );
+    return _wrapParts([...beforeParts, ...numParts, ...afterParts]);
+  }
+
   o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
   return o;
 }
 
@@ -220,10 +298,11 @@ JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
     );
   }
   final o = JSObject();
-  JSString format(JSObject decimal) {
-    final s = _decimalStr(decimal);
+  // The reused int formatter for integer values, else one pinned to the
+  // value's fraction digits.
+  JSObject fmtFor(String s) {
     final k = _fractionDigits(s);
-    final fmt = k == 0
+    return k == 0
         ? intFmt
         : intlFormat(
             'NumberFormat',
@@ -234,10 +313,24 @@ JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
               'maximumFractionDigits': k.toJS,
             }),
           );
-    return fmt.callMethod<JSString>('format'.toJS, s.toJS);
+  }
+
+  JSString format(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return fmtFor(s).callMethod<JSString>('format'.toJS, s.toJS);
+  }
+
+  JSObject formatToParts(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return _wrapParts(
+      _intlParts(
+        fmtFor(s).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
+      ),
+    );
   }
 
   o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
   return o;
 }
 

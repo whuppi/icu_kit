@@ -99,8 +99,26 @@ final class IcuPluralRules {
   ///
   /// Accepts integers and doubles. Negative numbers are categorized by their
   /// absolute value (per CLDR convention).
-  IcuPluralCategory category(num value) {
-    final operands = icu.PluralOperands.fromString(value.toString());
+  ///
+  /// Note: `value.toString()` drops trailing zeros, so `1.0` classifies the
+  /// same as `1`. When the caller has a display-shaped digit string whose
+  /// visible fraction digits matter (CLDR operand `v`), use
+  /// [categoryOfDecimal] instead.
+  IcuPluralCategory category(num value) => categoryOfDecimal(value.toString());
+
+  /// Classify a pre-shaped decimal STRING into a CLDR plural category.
+  ///
+  /// Unlike [category], this preserves the visible fraction digits (CLDR
+  /// operand `v`) exactly as [decimal] spells them: in English, `'1.0'`
+  /// classifies as [IcuPluralCategory.other] while `'1'` classifies as
+  /// [IcuPluralCategory.one]. Pass the digit string a user would see — e.g.
+  /// the output of applying minimum/maximum fraction digits — so plural
+  /// selection agrees with the rendered number.
+  ///
+  /// [decimal] is a plain decimal literal (`'1'`, `'-2.50'`, `'1000'`); it is
+  /// not locale-formatted (no grouping separators, ASCII digits, `.` point).
+  IcuPluralCategory categoryOfDecimal(String decimal) {
+    final operands = icu.PluralOperands.fromString(decimal);
     final ffiCategory = _ffi.categoryFor(operands);
     return _toFacadeCategory(ffiCategory);
   }

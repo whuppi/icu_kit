@@ -108,12 +108,16 @@ final class IcuUnitFormat {
     int? minimumIntegerDigits,
     int? minimumFractionDigits,
     int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
   }) => _ffi.format(
     shapedDecimalFfi(
       value,
       minimumIntegerDigits: minimumIntegerDigits,
       minimumFractionDigits: minimumFractionDigits,
       maximumFractionDigits: maximumFractionDigits,
+      minimumSignificantDigits: minimumSignificantDigits,
+      maximumSignificantDigits: maximumSignificantDigits,
     ),
   );
 
@@ -127,6 +131,8 @@ final class IcuUnitFormat {
     int? minimumIntegerDigits,
     int? minimumFractionDigits,
     int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
   }) => partsToList(
     _ffi.formatToParts(
       shapedDecimalFfi(
@@ -134,6 +140,8 @@ final class IcuUnitFormat {
         minimumIntegerDigits: minimumIntegerDigits,
         minimumFractionDigits: minimumFractionDigits,
         maximumFractionDigits: maximumFractionDigits,
+        minimumSignificantDigits: minimumSignificantDigits,
+        maximumSignificantDigits: maximumSignificantDigits,
       ),
     ),
   );

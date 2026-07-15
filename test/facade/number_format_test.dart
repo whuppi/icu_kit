@@ -148,4 +148,46 @@ void main() {
       expect(fmt.format(1.567), '1.567');
     });
   });
+
+  group('IcuNumberFormat — significant digits (E2 sprint 2)', () {
+    late final IcuNumberFormat fmt;
+    setUpAll(() {
+      fmt = IcuNumberFormat.decimal(locale: 'en-US', useGrouping: false);
+    });
+
+    test('maximumSignificantDigits rounds to N figures', () {
+      expect(fmt.format(1234, maximumSignificantDigits: 2), '1200');
+      expect(fmt.format(1.2345, maximumSignificantDigits: 3), '1.23');
+      // magnitude shift: 9.99 @ 2 sig → "10", not "10.0"
+      expect(fmt.format(9.99, maximumSignificantDigits: 2), '10');
+    });
+
+    test('minimumSignificantDigits pads to N figures', () {
+      expect(fmt.format(5, minimumSignificantDigits: 3), '5.00');
+      expect(fmt.format(1.2, minimumSignificantDigits: 4), '1.200');
+    });
+
+    test('min + max significant digits together', () {
+      expect(
+        fmt.format(
+          1.5,
+          minimumSignificantDigits: 3,
+          maximumSignificantDigits: 3,
+        ),
+        '1.50',
+      );
+    });
+
+    test('significant digits take priority over fraction digits', () {
+      // ECMA-402 default roundingPriority: when sig is set, fraction ignored.
+      expect(
+        fmt.format(
+          1.2345,
+          maximumSignificantDigits: 2,
+          maximumFractionDigits: 4,
+        ),
+        '1.2',
+      );
+    });
+  });
 }

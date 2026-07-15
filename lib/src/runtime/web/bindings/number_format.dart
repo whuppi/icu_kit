@@ -17,6 +17,23 @@ extension type Decimal._(JSObject _self) implements JSObject {
     _cls.callMethod<JSObject>('fromNumberWithRoundTripPrecision'.toJS, f.toJS),
   );
 
+  /// Create a decimal from a double rounded to [digits] significant digits.
+  /// Mirrors ICU4X `Decimal::try_from_f64` with `SignificantDigits`.
+  factory Decimal.fromDoubleWithSignificantDigits(double f, int digits) =>
+      Decimal._(
+        _cls.callMethod<JSObject>(
+          'fromNumberWithSignificantDigits'.toJS,
+          f.toJS,
+          digits.toJS,
+        ),
+      );
+
+  /// The power-of-ten position of the most significant digit (e.g. 3 for
+  /// 1234, -2 for 0.05). This is ICU4X `magnitude_range`'s `end` — the range
+  /// is a Rust RangeInclusive, so the HIGH magnitude is `end`.
+  int get magnitudeEnd =>
+      _self.getProperty<JSNumber>('magnitudeEnd'.toJS).toDartInt;
+
   /// Zero-pad on the left up to (10^[position]) so the integer part shows
   /// at least `position + 1` digits. Mirrors ICU4X `Decimal::pad_start`.
   void padStart(int position) =>

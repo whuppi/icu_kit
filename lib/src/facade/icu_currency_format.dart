@@ -125,12 +125,16 @@ final class IcuCurrencyFormat {
     int? minimumIntegerDigits,
     int? minimumFractionDigits,
     int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
   }) {
     final decimal = shapedDecimalFfi(
       value,
       minimumIntegerDigits: minimumIntegerDigits,
       minimumFractionDigits: minimumFractionDigits,
       maximumFractionDigits: maximumFractionDigits,
+      minimumSignificantDigits: minimumSignificantDigits,
+      maximumSignificantDigits: maximumSignificantDigits,
     );
     final symbol = _symbol;
     if (symbol != null) {
@@ -157,12 +161,16 @@ final class IcuCurrencyFormat {
     int? minimumIntegerDigits,
     int? minimumFractionDigits,
     int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
   }) {
     final decimal = shapedDecimalFfi(
       value,
       minimumIntegerDigits: minimumIntegerDigits,
       minimumFractionDigits: minimumFractionDigits,
       maximumFractionDigits: maximumFractionDigits,
+      minimumSignificantDigits: minimumSignificantDigits,
+      maximumSignificantDigits: maximumSignificantDigits,
     );
     final symbol = _symbol;
     if (symbol != null) {

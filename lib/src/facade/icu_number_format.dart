@@ -76,6 +76,8 @@ final class IcuNumberFormat {
     int? minimumIntegerDigits,
     int? minimumFractionDigits,
     int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
   }) {
     return _ffi.format(
       shapedDecimalFfi(
@@ -83,6 +85,8 @@ final class IcuNumberFormat {
         minimumIntegerDigits: minimumIntegerDigits,
         minimumFractionDigits: minimumFractionDigits,
         maximumFractionDigits: maximumFractionDigits,
+        minimumSignificantDigits: minimumSignificantDigits,
+        maximumSignificantDigits: maximumSignificantDigits,
       ),
     );
   }
@@ -97,6 +101,8 @@ final class IcuNumberFormat {
     int? minimumIntegerDigits,
     int? minimumFractionDigits,
     int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
   }) {
     return partsToList(
       _ffi.formatToParts(
@@ -105,6 +111,8 @@ final class IcuNumberFormat {
           minimumIntegerDigits: minimumIntegerDigits,
           minimumFractionDigits: minimumFractionDigits,
           maximumFractionDigits: maximumFractionDigits,
+          minimumSignificantDigits: minimumSignificantDigits,
+          maximumSignificantDigits: maximumSignificantDigits,
         ),
       ),
     );
@@ -115,15 +123,39 @@ final class IcuNumberFormat {
 /// currency facades reuse it.
 icu.Decimal toDecimalFfi(num value) => _toDecimal(value);
 
-/// [toDecimalFfi] + [shapeDecimalDigits] in one call. Every number-style
-/// facade (decimal / percent / currency / unit) builds its Decimal through
-/// this, so digit shaping is identical across styles.
+/// Build the shaped ICU4X Decimal for [value] under ECMA-402 digit options.
+/// Every number-style facade (decimal / percent / currency / unit) builds its
+/// Decimal through this, so digit shaping is identical across styles.
+///
+/// Significant-digit options take priority over integer/fraction options
+/// (ECMA-402's default `roundingPriority: "auto"`): when either significant
+/// option is set, the fraction/integer options are ignored.
 icu.Decimal shapedDecimalFfi(
   num value, {
   int? minimumIntegerDigits,
   int? minimumFractionDigits,
   int? maximumFractionDigits,
+  int? minimumSignificantDigits,
+  int? maximumSignificantDigits,
 }) {
+  if (minimumSignificantDigits != null || maximumSignificantDigits != null) {
+    // maxSig rounds at construction (ICU4X handles the magnitude shift that
+    // in-place rounding gets wrong, e.g. 9.99 @ 2 sig → "10", not "10.0").
+    final d = maximumSignificantDigits != null
+        ? icu.Decimal.fromDoubleWithSignificantDigits(
+            value.toDouble(),
+            maximumSignificantDigits,
+          )
+        : _toDecimal(value);
+    if (minimumSignificantDigits != null) {
+      // Pad trailing zeros so at least minSig significant digits show. The
+      // most-significant digit sits at magnitudeEnd (ICU4X magnitude_range is
+      // a Rust RangeInclusive, so `end` is the HIGH magnitude); the lowest
+      // significant position we need is magnitudeEnd - minSig + 1.
+      d.padEnd(d.magnitudeEnd - minimumSignificantDigits + 1);
+    }
+    return d;
+  }
   final d = _toDecimal(value);
   shapeDecimalDigits(
     d,

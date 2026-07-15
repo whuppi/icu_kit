@@ -24,6 +24,9 @@ import '_util.dart';
 
 JSObject _decimal(String s) {
   final o = JSObject()..setProperty('s'.toJS, s.toJS);
+  // The position of the most significant digit — the sig-digit path reads it
+  // to compute how far to pad. Matches ICU4X magnitude_range's `end`.
+  o.setProperty('magnitudeEnd'.toJS, _magnitudeEnd(s).toJS);
   void rec(String key, int v) => o.setProperty(key.toJS, v.toJS);
   // padEnd(position): at least (-position) fraction digits.
   o.setProperty(
@@ -52,6 +55,53 @@ String _decimalStr(JSObject d) => d.getProperty<JSString>('s'.toJS).toDart;
 int _fractionDigits(String s) {
   final dot = s.indexOf('.');
   return dot < 0 ? 0 : s.length - dot - 1;
+}
+
+/// Power-of-ten position of the most significant digit in [s] (a plain
+/// decimal literal). 1234 → 3, 1.2 → 0, 0.05 → -2, 0 → 0.
+int _magnitudeEnd(String s) {
+  final str = s.startsWith('-') ? s.substring(1) : s;
+  final dot = str.indexOf('.');
+  final intPart = dot < 0 ? str : str.substring(0, dot);
+  final fracPart = dot < 0 ? '' : str.substring(dot + 1);
+  for (var i = 0; i < intPart.length; i++) {
+    if (intPart[i] != '0') return intPart.length - 1 - i;
+  }
+  for (var j = 0; j < fracPart.length; j++) {
+    if (fracPart[j] != '0') return -(j + 1);
+  }
+  return 0; // zero
+}
+
+/// [f] rounded to [digits] significant figures as a plain decimal string.
+/// `toStringAsPrecision` is Dart's `Number.toPrecision`; expand any
+/// exponential form so the shim's Decimal stays a plain literal.
+String _sigString(double f, int digits) {
+  final s = f.toStringAsPrecision(digits);
+  return (s.contains('e') || s.contains('E')) ? _deExponent(s) : s;
+}
+
+/// Expand `1.2e+5` / `1.2e-7` scientific notation to a plain decimal literal.
+String _deExponent(String s) {
+  final neg = s.startsWith('-');
+  final body = neg ? s.substring(1) : s;
+  final eIdx = body.indexOf(RegExp('[eE]'));
+  final mantissa = body.substring(0, eIdx);
+  final exp = int.parse(body.substring(eIdx + 1));
+  final dot = mantissa.indexOf('.');
+  final intPart = dot < 0 ? mantissa : mantissa.substring(0, dot);
+  final fracPart = dot < 0 ? '' : mantissa.substring(dot + 1);
+  final digits = intPart + fracPart;
+  final pointPos = intPart.length + exp;
+  String out;
+  if (pointPos <= 0) {
+    out = '0.${'0' * -pointPos}$digits';
+  } else if (pointPos >= digits.length) {
+    out = digits + '0' * (pointPos - digits.length);
+  } else {
+    out = '${digits.substring(0, pointPos)}.${digits.substring(pointPos)}';
+  }
+  return neg ? '-$out' : out;
 }
 
 int? _recorded(JSObject d, String key) =>
@@ -384,6 +434,10 @@ void registerNumberFormat(JSObject module) {
       'fromNumberWithRoundTripPrecision': ((JSAny v) => _decimal(
         jsStringify(v),
       )).toJS,
+      'fromNumberWithSignificantDigits':
+          ((JSNumber v, JSNumber digits) =>
+                  _decimal(_sigString(v.toDartDouble, digits.toDartInt)))
+              .toJS,
     }),
   );
 

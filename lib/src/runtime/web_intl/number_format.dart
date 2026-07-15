@@ -12,14 +12,75 @@ import 'dart:js_interop_unsafe';
 
 import '_util.dart';
 
-// ── Decimal opaque: {s: <decimal string>} ────────────────────────────────
+// ── Decimal opaque: {s: <decimal string>, minFrac?, maxFrac?, minInt?} ────
+//
+// The digit-shaping methods (padStart / padEnd / roundWithMode, invoked by
+// the shared web Decimal mirror) don't rewrite the string here — they RECORD
+// the requested digit intent on the object. Intl.NumberFormat then does the
+// actual rounding + padding at format time (its default rounding is
+// halfExpand, matching ECMA-402 and the native fixed_decimal path). This
+// keeps the browser-Intl engine's output identical to native/WASM without
+// re-implementing decimal rounding.
 
-JSObject _decimal(String s) => JSObject()..setProperty('s'.toJS, s.toJS);
+JSObject _decimal(String s) {
+  final o = JSObject()..setProperty('s'.toJS, s.toJS);
+  void rec(String key, int v) => o.setProperty(key.toJS, v.toJS);
+  // padEnd(position): at least (-position) fraction digits.
+  o.setProperty(
+    'padEnd'.toJS,
+    ((JSNumber position) => rec('minFrac', -position.toDartInt)).toJS,
+  );
+  // padStart(position): at least `position` integer digits (native
+  // pad_start(N) yields N integer digits, so position IS the count).
+  o.setProperty(
+    'padStart'.toJS,
+    ((JSNumber position) => rec('minInt', position.toDartInt)).toJS,
+  );
+  // roundWithMode(position, mode): round to (-position) fraction digits. The
+  // mode is always halfExpand (ECMA-402 default) = Intl's own default, so the
+  // mode object is accepted and ignored.
+  o.setProperty(
+    'roundWithMode'.toJS,
+    ((JSNumber position, JSObject _) => rec('maxFrac', -position.toDartInt))
+        .toJS,
+  );
+  return o;
+}
+
 String _decimalStr(JSObject d) => d.getProperty<JSString>('s'.toJS).toDart;
 
 int _fractionDigits(String s) {
   final dot = s.indexOf('.');
   return dot < 0 ? 0 : s.length - dot - 1;
+}
+
+int? _recorded(JSObject d, String key) =>
+    d.getProperty<JSNumber?>(key.toJS)?.toDartInt;
+
+/// Resolve the Intl digit options for [d] from its own string digits plus any
+/// recorded shaping intent. With no shaping recorded this pins min == max ==
+/// the string's own fraction digits (preserving trailing zeros exactly, the
+/// original behavior); shaping widens/narrows per ECMA-402.
+({int minFrac, int maxFrac, int? minInt}) _digitOpts(JSObject d) {
+  final own = _fractionDigits(_decimalStr(d));
+  final recMinFrac = _recorded(d, 'minFrac');
+  final recMaxFrac = _recorded(d, 'maxFrac');
+  final minInt = _recorded(d, 'minInt');
+  final fracShaped = recMinFrac != null || recMaxFrac != null;
+  final minFrac = fracShaped ? (recMinFrac ?? 0) : own;
+  var maxFrac = fracShaped ? (recMaxFrac ?? (own > minFrac ? own : minFrac)) : own;
+  if (maxFrac < minFrac) maxFrac = minFrac;
+  return (minFrac: minFrac, maxFrac: maxFrac, minInt: minInt);
+}
+
+/// The digit-shaping keys added to a bare jsOptions map for a decimal [d].
+Map<String, JSAny?> _digitJsOptions(JSObject d) {
+  final o = _digitOpts(d);
+  return {
+    'minimumFractionDigits': o.minFrac.toJS,
+    'maximumFractionDigits': o.maxFrac.toJS,
+    if (o.minInt != null) 'minimumIntegerDigits': o.minInt!.toJS,
+  };
 }
 
 // The grouping strategy sentinel (its `value`) → Intl `useGrouping`.
@@ -87,23 +148,17 @@ JSObject _decimalFormatter(JSObject locale, JSObject? strategy) {
   final tag = localeTag(locale);
   final grouping = _useGrouping(strategy);
   final o = JSObject();
-  JSObject options(String s) {
-    final k = _fractionDigits(s);
-    return jsOptions({
-      'useGrouping': grouping,
-      'minimumFractionDigits': k.toJS,
-      'maximumFractionDigits': k.toJS,
-    });
-  }
+  JSObject options(JSObject decimal) =>
+      jsOptions({'useGrouping': grouping, ..._digitJsOptions(decimal)});
 
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    return _fmt(tag, options(s), s);
+    return _fmt(tag, options(decimal), s);
   }
 
   JSObject formatToParts(JSObject decimal) {
     final s = _decimalStr(decimal);
-    return _fmtParts(tag, options(s), s);
+    return _fmtParts(tag, options(decimal), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
@@ -124,25 +179,21 @@ JSObject _currencyFormatter(JSObject locale, JSObject? width) {
   final display = _currencyDisplay(width);
   final o = JSObject();
   // Symbol form: currency code arrives at format time.
-  JSObject options(String s, JSString currencyCode) {
-    final k = _fractionDigits(s);
-    return jsOptions({
-      'style': 'currency'.toJS,
-      'currency': currencyCode,
-      'currencyDisplay': display.toJS,
-      'minimumFractionDigits': k.toJS,
-      'maximumFractionDigits': k.toJS,
-    });
-  }
+  JSObject options(JSObject decimal, JSString currencyCode) => jsOptions({
+    'style': 'currency'.toJS,
+    'currency': currencyCode,
+    'currencyDisplay': display.toJS,
+    ..._digitJsOptions(decimal),
+  });
 
   JSString format(JSObject decimal, JSString currencyCode) {
     final s = _decimalStr(decimal);
-    return _fmt(tag, options(s, currencyCode), s);
+    return _fmt(tag, options(decimal, currencyCode), s);
   }
 
   JSObject formatToParts(JSObject decimal, JSString currencyCode) {
     final s = _decimalStr(decimal);
-    return _fmtParts(tag, options(s, currencyCode), s);
+    return _fmtParts(tag, options(decimal, currencyCode), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
@@ -153,25 +204,21 @@ JSObject _currencyFormatter(JSObject locale, JSObject? width) {
 JSObject _longCurrencyFormatter(JSObject locale, JSString currencyCode) {
   final tag = localeTag(locale);
   final o = JSObject();
-  JSObject options(String s) {
-    final k = _fractionDigits(s);
-    return jsOptions({
-      'style': 'currency'.toJS,
-      'currency': currencyCode,
-      'currencyDisplay': 'name'.toJS,
-      'minimumFractionDigits': k.toJS,
-      'maximumFractionDigits': k.toJS,
-    });
-  }
+  JSObject options(JSObject decimal) => jsOptions({
+    'style': 'currency'.toJS,
+    'currency': currencyCode,
+    'currencyDisplay': 'name'.toJS,
+    ..._digitJsOptions(decimal),
+  });
 
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    return _fmt(tag, options(s), s);
+    return _fmt(tag, options(decimal), s);
   }
 
   JSObject formatToParts(JSObject decimal) {
     final s = _decimalStr(decimal);
-    return _fmtParts(tag, options(s), s);
+    return _fmtParts(tag, options(decimal), s);
   }
 
   o.setProperty('format'.toJS, format.toJS);
@@ -223,18 +270,14 @@ JSObject _percentFormatter(JSObject locale, JSObject? display) {
   final before = beforeParts.map((p) => p.$2).join();
   final after = afterParts.map((p) => p.$2).join();
   final o = JSObject();
-  JSObject numOptions(String s) {
-    final k = _fractionDigits(s);
-    return jsOptions({
-      'signDisplay': signDisplay,
-      'minimumFractionDigits': k.toJS,
-      'maximumFractionDigits': k.toJS,
-    });
-  }
+  JSObject numOptions(JSObject decimal) => jsOptions({
+    'signDisplay': signDisplay,
+    ..._digitJsOptions(decimal),
+  });
 
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    final num = _fmt(tag, numOptions(s), s).toDart;
+    final num = _fmt(tag, numOptions(decimal), s).toDart;
     return '$before$num$after'.toJS;
   }
 
@@ -244,7 +287,7 @@ JSObject _percentFormatter(JSObject locale, JSObject? display) {
       intlFormat(
         'NumberFormat',
         tag,
-        numOptions(s),
+        numOptions(decimal),
       ).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
     );
     return _wrapParts([...beforeParts, ...numParts, ...afterParts]);
@@ -298,33 +341,30 @@ JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
     );
   }
   final o = JSObject();
-  // The reused int formatter for integer values, else one pinned to the
-  // value's fraction digits.
-  JSObject fmtFor(String s) {
-    final k = _fractionDigits(s);
-    return k == 0
-        ? intFmt
-        : intlFormat(
-            'NumberFormat',
-            tag,
-            jsOptions({
-              ...base,
-              'minimumFractionDigits': k.toJS,
-              'maximumFractionDigits': k.toJS,
-            }),
-          );
+  // The reused int formatter for un-shaped integer values, else one pinned to
+  // the resolved digit options.
+  JSObject fmtFor(JSObject decimal) {
+    final d = _digitOpts(decimal);
+    if (d.minFrac == 0 && d.maxFrac == 0 && d.minInt == null) return intFmt;
+    return intlFormat(
+      'NumberFormat',
+      tag,
+      jsOptions({...base, ..._digitJsOptions(decimal)}),
+    );
   }
 
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
-    return fmtFor(s).callMethod<JSString>('format'.toJS, s.toJS);
+    return fmtFor(decimal).callMethod<JSString>('format'.toJS, s.toJS);
   }
 
   JSObject formatToParts(JSObject decimal) {
     final s = _decimalStr(decimal);
     return _wrapParts(
       _intlParts(
-        fmtFor(s).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
+        fmtFor(
+          decimal,
+        ).callMethod<JSArray<JSObject>>('formatToParts'.toJS, s.toJS),
       ),
     );
   }
@@ -363,6 +403,10 @@ void registerNumberFormat(JSObject module) {
     'DecimalGroupingStrategy',
     enumClass(const ['Auto', 'Never', 'Always', 'Min2']),
   );
+  // Only HalfExpand is needed — the shared Decimal mirror's roundWithMode
+  // passes it, and this shim ignores the mode (Intl already rounds
+  // halfExpand). Registered so `mode.toJs()` resolves rather than throwing.
+  put(module, 'DecimalSignedRoundingMode', enumClass(const ['HalfExpand']));
 
   put(
     module,

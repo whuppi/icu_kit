@@ -4,7 +4,7 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_format.dart' show shapedDecimalFfi, shapeDecimalDigits;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — locale-aware unit formatting.
@@ -100,17 +100,43 @@ final class IcuUnitFormat {
   /// EXPERIMENTAL — format [value] with this formatter's pinned unit.
   ///
   /// Returns the locale-correct plural form
-  /// (e.g. `"1 hour"` / `"2 hours"` in en-US).
+  /// (e.g. `"1 hour"` / `"2 hours"` in en-US). The digit controls apply
+  /// ECMA-402 shaping (see [shapeDecimalDigits]).
   @experimental
-  String format(num value) => _ffi.format(toDecimalFfi(value));
+  String format(
+    num value, {
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+  }) => _ffi.format(
+    shapedDecimalFfi(
+      value,
+      minimumIntegerDigits: minimumIntegerDigits,
+      minimumFractionDigits: minimumFractionDigits,
+      maximumFractionDigits: maximumFractionDigits,
+    ),
+  );
 
   /// EXPERIMENTAL — format [value] into typed parts (integer / group /
   /// decimal / fraction, the unit name as a single `unit` part, spacing as
   /// `literal`), mirroring ECMA-402 `formatToParts`. Concatenating every
   /// part's `value` reproduces [format].
   @experimental
-  List<IcuNumberPart> formatToParts(num value) =>
-      partsToList(_ffi.formatToParts(toDecimalFfi(value)));
+  List<IcuNumberPart> formatToParts(
+    num value, {
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+  }) => partsToList(
+    _ffi.formatToParts(
+      shapedDecimalFfi(
+        value,
+        minimumIntegerDigits: minimumIntegerDigits,
+        minimumFractionDigits: minimumFractionDigits,
+        maximumFractionDigits: maximumFractionDigits,
+      ),
+    ),
+  );
 
   /// EXPERIMENTAL — the CLDR unit identifier this formatter is pinned to.
   @experimental

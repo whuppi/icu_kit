@@ -63,6 +63,19 @@ void main() {
       expect(result, isNotEmpty);
       expect(result, contains('99'));
     });
+
+    test('digit shaping flows through the currency facade', () {
+      // Proves format()'s digit params reach the shared shaper: pad to 2
+      // fraction digits, round half away from zero.
+      expect(
+        fmt.format(5, currencyCode: 'USD', minimumFractionDigits: 2),
+        contains('5.00'),
+      );
+      expect(
+        fmt.format(1.005, currencyCode: 'USD', maximumFractionDigits: 2),
+        contains('1.01'),
+      );
+    });
   });
 
   group('IcuCurrencyFormat.symbol — Narrow width (en-US)', () {

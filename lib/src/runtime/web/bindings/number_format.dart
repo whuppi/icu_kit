@@ -17,8 +17,41 @@ extension type Decimal._(JSObject _self) implements JSObject {
     _cls.callMethod<JSObject>('fromNumberWithRoundTripPrecision'.toJS, f.toJS),
   );
 
+  /// Zero-pad on the left up to (10^[position]) so the integer part shows
+  /// at least `position + 1` digits. Mirrors ICU4X `Decimal::pad_start`.
+  void padStart(int position) =>
+      _self.callMethod<JSAny?>('padStart'.toJS, position.toJS);
+
+  /// Zero-pad on the right down to (10^[position]) so the fraction shows at
+  /// least `-position` digits. Mirrors ICU4X `Decimal::pad_end`.
+  void padEnd(int position) =>
+      _self.callMethod<JSAny?>('padEnd'.toJS, position.toJS);
+
+  /// Round at (10^[position]) with [mode]. Mirrors ICU4X
+  /// `Decimal::round_with_mode`.
+  void roundWithMode(int position, DecimalSignedRoundingMode mode) => _self
+      .callMethod<JSAny?>('roundWithMode'.toJS, position.toJS, mode.toJs());
+
   static JSObject get _cls =>
       IcuKit.module.getProperty<JSObject>('Decimal'.toJS);
+}
+
+/// Web mirror of the FFI `DecimalSignedRoundingMode`. Only the ECMA-402
+/// default ([halfExpand]) is surfaced today — the digit-shaping path is the
+/// sole caller. `toJs()` is public so the shaping code can pass it across.
+enum DecimalSignedRoundingMode {
+  /// Round half away from zero (ECMA-402's default `roundingMode`).
+  halfExpand;
+
+  /// The JS enum value for this mode.
+  JSObject toJs() {
+    final cls = IcuKit.module.getProperty<JSObject>(
+      'DecimalSignedRoundingMode'.toJS,
+    );
+    return cls.getProperty<JSObject>(switch (this) {
+      halfExpand => 'HalfExpand'.toJS,
+    });
+  }
 }
 
 /// Web mirror of the FFI `FormattedNumberParts`.

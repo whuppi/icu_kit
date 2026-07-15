@@ -64,25 +64,108 @@ final class IcuNumberFormat {
   /// Format [value]. Accepts any `num` (int or double).
   ///
   /// Doubles are converted via round-trip precision — same digits the IEEE
-  /// 754 representation has. For controlled-precision formatting, pre-round
-  /// in Dart and pass an `int` or pre-rounded `double`.
-  String format(num value) {
-    final decimal = _toDecimal(value);
-    return _ffi.format(decimal);
+  /// 754 representation has. The optional digit controls apply ECMA-402
+  /// digit shaping before formatting (see [shapeDecimalDigits]):
+  ///
+  /// - [minimumIntegerDigits] — left-pad the integer part with zeros.
+  /// - [minimumFractionDigits] — right-pad the fraction with zeros.
+  /// - [maximumFractionDigits] — round the fraction (half away from zero,
+  ///   ECMA-402's default rounding).
+  String format(
+    num value, {
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+  }) {
+    return _ffi.format(
+      shapedDecimalFfi(
+        value,
+        minimumIntegerDigits: minimumIntegerDigits,
+        minimumFractionDigits: minimumFractionDigits,
+        maximumFractionDigits: maximumFractionDigits,
+      ),
+    );
   }
 
   /// Format [value] into typed parts (integer / group / decimal / fraction /
   /// sign), mirroring ECMA-402 `Intl.NumberFormat.prototype.formatToParts`.
   ///
   /// Concatenating every part's `value` reproduces [format]'s output exactly.
-  List<IcuNumberPart> formatToParts(num value) {
-    return partsToList(_ffi.formatToParts(_toDecimal(value)));
+  /// The digit controls behave as in [format].
+  List<IcuNumberPart> formatToParts(
+    num value, {
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+  }) {
+    return partsToList(
+      _ffi.formatToParts(
+        shapedDecimalFfi(
+          value,
+          minimumIntegerDigits: minimumIntegerDigits,
+          minimumFractionDigits: minimumFractionDigits,
+          maximumFractionDigits: maximumFractionDigits,
+        ),
+      ),
+    );
   }
 }
 
 /// Maps Dart's `num` to ICU4X's `Decimal`. Top-level so both decimal and
 /// currency facades reuse it.
 icu.Decimal toDecimalFfi(num value) => _toDecimal(value);
+
+/// [toDecimalFfi] + [shapeDecimalDigits] in one call. Every number-style
+/// facade (decimal / percent / currency / unit) builds its Decimal through
+/// this, so digit shaping is identical across styles.
+icu.Decimal shapedDecimalFfi(
+  num value, {
+  int? minimumIntegerDigits,
+  int? minimumFractionDigits,
+  int? maximumFractionDigits,
+}) {
+  final d = _toDecimal(value);
+  shapeDecimalDigits(
+    d,
+    minimumIntegerDigits: minimumIntegerDigits,
+    minimumFractionDigits: minimumFractionDigits,
+    maximumFractionDigits: maximumFractionDigits,
+  );
+  return d;
+}
+
+/// Apply ECMA-402 digit shaping to [d] in place, before it is handed to any
+/// formatter. Shared by every number-style facade (decimal / percent /
+/// currency / unit) so digit semantics are identical across styles.
+///
+/// Order is load-bearing: round FIRST (drop excess fraction), then pad the
+/// minimum fraction (restore required trailing zeros), then pad the integer.
+/// Rounding after padding would strip the zeros padding just added.
+///
+/// [maximumFractionDigits] rounds half away from zero — ECMA-402's default
+/// `roundingMode`, which is NOT ICU4X's default (half-even), so it goes
+/// through `roundWithMode` explicitly.
+void shapeDecimalDigits(
+  icu.Decimal d, {
+  int? minimumIntegerDigits,
+  int? minimumFractionDigits,
+  int? maximumFractionDigits,
+}) {
+  if (maximumFractionDigits != null) {
+    d.roundWithMode(
+      -maximumFractionDigits,
+      icu.DecimalSignedRoundingMode.halfExpand,
+    );
+  }
+  if (minimumFractionDigits != null) {
+    d.padEnd(-minimumFractionDigits);
+  }
+  if (minimumIntegerDigits != null) {
+    // ICU4X pad_start(position) yields `position` integer digits (verified:
+    // pad_start(4) on 42 → "0042"), so the digit count maps straight through.
+    d.padStart(minimumIntegerDigits);
+  }
+}
 
 icu.Decimal _toDecimal(num value) {
   // On the web, `is int` is true for any integer-VALUED double — including

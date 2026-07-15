@@ -101,4 +101,51 @@ void main() {
       expect(fmt.format(12345), '12,345');
     });
   });
+
+  group('IcuNumberFormat — digit shaping (E2 fraction + integer)', () {
+    late final IcuNumberFormat fmt;
+    setUpAll(() {
+      fmt = IcuNumberFormat.decimal(locale: 'en-US', useGrouping: false);
+    });
+
+    test('minimumFractionDigits pads trailing zeros', () {
+      expect(fmt.format(1, minimumFractionDigits: 2), '1.00');
+      expect(fmt.format(1.5, minimumFractionDigits: 3), '1.500');
+    });
+
+    test('maximumFractionDigits rounds half away from zero', () {
+      // ECMA-402 default rounding is halfExpand, not ICU4X's half-even:
+      // 2.5 → 3 (not 2), 0.125 → 0.13 (not 0.12).
+      expect(fmt.format(2.5, maximumFractionDigits: 0), '3');
+      expect(fmt.format(0.125, maximumFractionDigits: 2), '0.13');
+      expect(fmt.format(1.567, maximumFractionDigits: 2), '1.57');
+    });
+
+    test('min + max fraction digits together', () {
+      // Round to at most 2, pad to at least 2.
+      expect(
+        fmt.format(1.5, minimumFractionDigits: 2, maximumFractionDigits: 2),
+        '1.50',
+      );
+      expect(
+        fmt.format(1.567, minimumFractionDigits: 2, maximumFractionDigits: 2),
+        '1.57',
+      );
+    });
+
+    test('minimumIntegerDigits left-pads with zeros', () {
+      expect(fmt.format(42, minimumIntegerDigits: 5), '00042');
+      expect(fmt.format(1234.5, minimumIntegerDigits: 6), '001234.5');
+    });
+
+    test('negative values shape correctly', () {
+      expect(fmt.format(-2.5, maximumFractionDigits: 0), '-3');
+      expect(fmt.format(-1, minimumFractionDigits: 2), '-1.00');
+    });
+
+    test('no digit options → unchanged round-trip', () {
+      expect(fmt.format(1234.5), '1234.5');
+      expect(fmt.format(1.567), '1.567');
+    });
+  });
 }

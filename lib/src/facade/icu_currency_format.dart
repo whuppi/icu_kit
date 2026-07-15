@@ -4,7 +4,7 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_format.dart' show shapedDecimalFfi, shapeDecimalDigits;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — currency-aware decimal formatting.
@@ -116,10 +116,22 @@ final class IcuCurrencyFormat {
   ///
   /// For symbol-style instances, [currencyCode] is required (3-letter ISO
   /// 4217). For long-form instances, [currencyCode] is ignored — the
-  /// formatter is pinned to the currency code passed at construction.
+  /// formatter is pinned to the currency code passed at construction. The
+  /// digit controls apply ECMA-402 shaping (see [shapeDecimalDigits]).
   @experimental
-  String format(num value, {String? currencyCode}) {
-    final decimal = toDecimalFfi(value);
+  String format(
+    num value, {
+    String? currencyCode,
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+  }) {
+    final decimal = shapedDecimalFfi(
+      value,
+      minimumIntegerDigits: minimumIntegerDigits,
+      minimumFractionDigits: minimumFractionDigits,
+      maximumFractionDigits: maximumFractionDigits,
+    );
     final symbol = _symbol;
     if (symbol != null) {
       if (currencyCode == null || currencyCode.length != 3) {
@@ -139,8 +151,19 @@ final class IcuCurrencyFormat {
   /// mirroring ECMA-402 `formatToParts`. Same [currencyCode] contract as
   /// [format]. Concatenating every part's `value` reproduces [format].
   @experimental
-  List<IcuNumberPart> formatToParts(num value, {String? currencyCode}) {
-    final decimal = toDecimalFfi(value);
+  List<IcuNumberPart> formatToParts(
+    num value, {
+    String? currencyCode,
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+  }) {
+    final decimal = shapedDecimalFfi(
+      value,
+      minimumIntegerDigits: minimumIntegerDigits,
+      minimumFractionDigits: minimumFractionDigits,
+      maximumFractionDigits: maximumFractionDigits,
+    );
     final symbol = _symbol;
     if (symbol != null) {
       if (currencyCode == null || currencyCode.length != 3) {

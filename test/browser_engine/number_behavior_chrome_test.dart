@@ -28,6 +28,14 @@ void main() {
         '1234.5',
       );
     });
+    test('min2 skips 4-digit groups, groups 5-digit (Intl v3 option)', () {
+      final fmt = IcuNumberFormat.decimal(
+        locale: 'en-US',
+        groupingStrategy: IcuGroupingStrategy.min2,
+      );
+      expect(fmt.format(1234), '1234');
+      expect(fmt.format(12345), '12,345');
+    });
     test('integer formats without a decimal point', () {
       expect(
         IcuNumberFormat.decimal(locale: 'en-US').format(1000000),

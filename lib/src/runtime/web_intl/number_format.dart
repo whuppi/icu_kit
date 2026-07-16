@@ -210,12 +210,19 @@ Map<String, JSAny?> _digitJsOptions(JSObject d, {bool pinOwnFraction = true}) {
   // Reconstruct the Intl-facing increment from (base, position): the
   // shaper rounded to multiples of base × 10^position, and Intl expresses
   // that as roundingIncrement = base × 10^(position + maxFrac) applied at
-  // maxFrac fraction digits (min == max, guaranteed by the facade).
+  // maxFrac fraction digits. Intl requires min == max with an increment,
+  // and the facade's contract guarantees it AND always records the
+  // effective minimum via padEnd — so the recorded minFrac IS the cutoff
+  // here (the string-derived o.maxFrac disagrees when the input carried
+  // more fraction digits than the cutoff, e.g. format(1.6, maxFrac: 0)).
   int? intlIncrement;
+  final minFrac = o.minFrac;
+  var maxFrac = o.maxFrac;
   if (incrementBase != null) {
+    maxFrac = minFrac;
     final position = _recorded(d, 'incrementPos')!;
     var inc = incrementBase;
-    for (var k = position + o.maxFrac; k > 0; k--) {
+    for (var k = position + maxFrac; k > 0; k--) {
       inc *= 10;
     }
     intlIncrement = inc;
@@ -227,8 +234,8 @@ Map<String, JSAny?> _digitJsOptions(JSObject d, {bool pinOwnFraction = true}) {
       if (minSig != null) 'minimumSignificantDigits': minSig.toJS,
       if (maxSig != null) 'maximumSignificantDigits': maxSig.toJS,
     } else if (pinOwnFraction || fracRecorded) ...{
-      'minimumFractionDigits': o.minFrac.toJS,
-      'maximumFractionDigits': o.maxFrac.toJS,
+      'minimumFractionDigits': minFrac.toJS,
+      'maximumFractionDigits': maxFrac.toJS,
     },
     if (o.minInt != null) 'minimumIntegerDigits': o.minInt!.toJS,
     if (roundingMode != null) 'roundingMode': _lowerCamel(roundingMode).toJS,

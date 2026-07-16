@@ -64,13 +64,19 @@ final class IcuNumberFormat {
   /// Format [value]. Accepts any `num` (int or double).
   ///
   /// Doubles are converted via round-trip precision — same digits the IEEE
-  /// 754 representation has. The optional digit controls apply ECMA-402
-  /// digit shaping before formatting (see [shapeDecimalDigits]):
+  /// 754 representation has. The optional controls apply ECMA-402 digit
+  /// shaping before formatting (see [shapeDecimalDigits]):
   ///
   /// - [minimumIntegerDigits] — left-pad the integer part with zeros.
   /// - [minimumFractionDigits] — right-pad the fraction with zeros.
-  /// - [maximumFractionDigits] — round the fraction (half away from zero,
-  ///   ECMA-402's default rounding).
+  /// - [maximumFractionDigits] — round the fraction ([roundingMode]
+  ///   defaults to half away from zero, ECMA-402's default).
+  /// - [minimumSignificantDigits] / [maximumSignificantDigits] — take
+  ///   priority over the fraction/integer options when set.
+  /// - [roundingMode] — one of the nine ECMA-402 modes.
+  /// - [roundingIncrement] — snap to a multiple (nickel rounding etc.).
+  /// - [trailingZeroDisplay] — strip fraction zeros on whole numbers.
+  /// - [signDisplay] — when the sign renders, applied post-rounding.
   String format(
     num value, {
     int? minimumIntegerDigits,
@@ -283,8 +289,18 @@ void shapeDecimalDigits(
   } else if (maximumFractionDigits != null) {
     d.roundWithMode(-maximumFractionDigits, mode);
   }
-  if (minimumFractionDigits != null) {
-    d.padEnd(-minimumFractionDigits);
+  // In the increment branch the effective minimum equals maximumFractionDigits
+  // (the constraint above guarantees it when minimumFractionDigits is unset),
+  // and padding must run UNCONDITIONALLY there: the pad is also what records
+  // the fraction intent for the browser-Intl Decimal mirror — without it the
+  // shim pins fraction digits from the input string and renders "0.0" where
+  // native renders "0".
+  final padTo = minimumFractionDigits ??
+      (roundingIncrement != null && roundingIncrement != 1
+          ? maximumFractionDigits
+          : null);
+  if (padTo != null) {
+    d.padEnd(-padTo);
   }
   if (minimumIntegerDigits != null) {
     // ICU4X pad_start(position) yields `position` integer digits (verified:

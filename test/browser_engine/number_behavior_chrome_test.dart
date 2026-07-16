@@ -165,6 +165,12 @@ void main() {
         fmt.format(12, maximumFractionDigits: 0, roundingIncrement: 5),
         '10',
       );
+      // Regression: fractional input at a 0-digit increment must not pin
+      // fraction digits from the input string ("0.0" where native says "0").
+      expect(
+        fmt.format(1.6, maximumFractionDigits: 0, roundingIncrement: 5),
+        '0',
+      );
     });
 
     test('compact notation abbreviates via Intl (short + long)', () {

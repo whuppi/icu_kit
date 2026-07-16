@@ -338,6 +338,20 @@ void main() {
       );
     });
 
+    test('fractional input at a 0-digit increment renders NO fraction', () {
+      // Regression: the increment branch must record the fraction intent
+      // even when minimumFractionDigits is unset — the browser-Intl mirror
+      // otherwise pins fraction digits from the input string ("0.0").
+      expect(
+        fmt.format(1.6, maximumFractionDigits: 0, roundingIncrement: 5),
+        '0',
+      );
+      expect(
+        fmt.format(7.4, maximumFractionDigits: 0, roundingIncrement: 5),
+        '5',
+      );
+    });
+
     test('increment with significant digits throws', () {
       expect(
         () => fmt.format(

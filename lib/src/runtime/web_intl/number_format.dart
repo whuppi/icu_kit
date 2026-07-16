@@ -26,8 +26,23 @@ JSObject _decimal(String s) {
   final o = JSObject()..setProperty('s'.toJS, s.toJS);
   // The position of the most significant digit — the sig-digit path reads it
   // to compute how far to pad. Matches ICU4X magnitude_range's `end`.
-  o.setProperty('magnitudeEnd'.toJS, _magnitudeEnd(s).toJS);
+  final magEnd = _magnitudeEnd(s);
+  o.setProperty('magnitudeEnd'.toJS, magEnd.toJS);
   void rec(String key, int v) => o.setProperty(key.toJS, v.toJS);
+  void recStr(String key, String v) => o.setProperty(key.toJS, v.toJS);
+  // Record the rounding cutoff. Fraction positions (<= 0) map onto
+  // maximumFractionDigits; a pre-integer position (> 0 — the facade's
+  // significant-digits + custom-mode path) has no fraction-digit
+  // equivalent, so it maps onto maximumSignificantDigits instead:
+  // rounding at 10^p keeps (magnitudeEnd - p + 1) significant digits.
+  void recCutoff(int position) {
+    if (position > 0) {
+      rec('maxSig', magEnd - position + 1);
+    } else {
+      rec('maxFrac', -position);
+    }
+  }
+
   // padEnd(position): at least (-position) fraction digits.
   o.setProperty(
     'padEnd'.toJS,
@@ -39,13 +54,40 @@ JSObject _decimal(String s) {
     'padStart'.toJS,
     ((JSNumber position) => rec('minInt', position.toDartInt)).toJS,
   );
-  // roundWithMode(position, mode): round to (-position) fraction digits. The
-  // mode is always halfExpand (ECMA-402 default) = Intl's own default, so the
-  // mode object is accepted and ignored.
+  // roundWithMode(position, mode): record the cutoff + the ECMA-402 mode.
+  // Intl.NumberFormat v3 does the actual rounding at format time.
   o.setProperty(
     'roundWithMode'.toJS,
-    ((JSNumber position, JSObject _) => rec('maxFrac', -position.toDartInt))
+    ((JSNumber position, JSObject mode) {
+      recCutoff(position.toDartInt);
+      recStr('roundingMode', enumStringValue(mode));
+    }).toJS,
+  );
+  // roundWithModeAndIncrement(position, mode, increment): additionally
+  // record the increment BASE ({1, 2, 5, 25}) and the raw position; the
+  // Intl-facing roundingIncrement is derived later against the recorded
+  // fraction digits (see _digitJsOptions) because (base, position) alone
+  // is ambiguous — increment 50 @ 2fd and increment 5 @ 1fd share both.
+  o.setProperty(
+    'roundWithModeAndIncrement'.toJS,
+    ((JSNumber position, JSObject mode, JSObject increment) {
+      final name = enumStringValue(increment); // 'MultiplesOf25' etc.
+      rec('incrementBase', int.parse(name.substring('MultiplesOf'.length)));
+      rec('incrementPos', position.toDartInt);
+      recStr('roundingMode', enumStringValue(mode));
+    }).toJS,
+  );
+  // applySignDisplay(display): record for Intl's signDisplay option.
+  o.setProperty(
+    'applySignDisplay'.toJS,
+    ((JSObject display) =>
+            recStr('signDisplay', enumStringValue(display)))
         .toJS,
+  );
+  // trimEndIfInteger(): record for Intl's trailingZeroDisplay option.
+  o.setProperty(
+    'trimEndIfInteger'.toJS,
+    (() => rec('stripIfInteger', 1)).toJS,
   );
   return o;
 }
@@ -107,6 +149,9 @@ String _deExponent(String s) {
 int? _recorded(JSObject d, String key) =>
     d.getProperty<JSNumber?>(key.toJS)?.toDartInt;
 
+String? _recordedStr(JSObject d, String key) =>
+    d.getProperty<JSString?>(key.toJS)?.toDart;
+
 /// Resolve the Intl digit options for [d] from its own string digits plus any
 /// recorded shaping intent. With no shaping recorded this pins min == max ==
 /// the string's own fraction digits (preserving trailing zeros exactly, the
@@ -123,13 +168,66 @@ int? _recorded(JSObject d, String key) =>
   return (minFrac: minFrac, maxFrac: maxFrac, minInt: minInt);
 }
 
-/// The digit-shaping keys added to a bare jsOptions map for a decimal [d].
+/// PascalCase enum sentinel name → the lowerCamel ECMA-402 option value
+/// ('HalfExpand' → 'halfExpand', 'ExceptZero' → 'exceptZero').
+String _lowerCamel(String v) => v[0].toLowerCase() + v.substring(1);
+
+/// The digit-shaping keys added to a bare jsOptions map for a decimal [d] —
+/// fraction/integer bounds plus every recorded ECMA-402 rounding intent
+/// (roundingMode / roundingIncrement / signDisplay / trailingZeroDisplay /
+/// max significant digits). Every formatter here builds its number options
+/// through this, so the recorded intents reach Intl uniformly.
 Map<String, JSAny?> _digitJsOptions(JSObject d) {
   final o = _digitOpts(d);
+  final magEnd = _recorded(d, 'magnitudeEnd') ?? 0;
+  final maxSig = _recorded(d, 'maxSig');
+  final recMinFrac = _recorded(d, 'minFrac');
+  final roundingMode = _recordedStr(d, 'roundingMode');
+  final signDisplay = _recordedStr(d, 'signDisplay');
+  final incrementBase = _recorded(d, 'incrementBase');
+
+  // The facade's minSig padding calls padEnd(magnitudeEnd - minSig + 1),
+  // which goes NEGATIVE as a fraction count for values whose padding stops
+  // left of the decimal point (1234 @ minSig 2 → padEnd(2) → "-2 fraction
+  // digits"). Intl rejects negative fraction bounds, so recover the
+  // significant-digit intent instead: minSig = recorded + magnitudeEnd + 1.
+  // The same recovery applies whenever the sig path is active (maxSig set).
+  int? minSig;
+  if (recMinFrac != null && (maxSig != null || recMinFrac < 0)) {
+    minSig = recMinFrac + magEnd + 1;
+    if (minSig < 1) minSig = 1;
+  }
+  final sigMode = maxSig != null || minSig != null;
+
+  // Reconstruct the Intl-facing increment from (base, position): the
+  // shaper rounded to multiples of base × 10^position, and Intl expresses
+  // that as roundingIncrement = base × 10^(position + maxFrac) applied at
+  // maxFrac fraction digits (min == max, guaranteed by the facade).
+  int? intlIncrement;
+  if (incrementBase != null) {
+    final position = _recorded(d, 'incrementPos')!;
+    var inc = incrementBase;
+    for (var k = position + o.maxFrac; k > 0; k--) {
+      inc *= 10;
+    }
+    intlIncrement = inc;
+  }
+
   return {
-    'minimumFractionDigits': o.minFrac.toJS,
-    'maximumFractionDigits': o.maxFrac.toJS,
+    if (sigMode) ...{
+      if (minSig != null) 'minimumSignificantDigits': minSig.toJS,
+      if (maxSig != null) 'maximumSignificantDigits': maxSig.toJS,
+    } else ...{
+      'minimumFractionDigits': o.minFrac.toJS,
+      'maximumFractionDigits': o.maxFrac.toJS,
+    },
     if (o.minInt != null) 'minimumIntegerDigits': o.minInt!.toJS,
+    if (roundingMode != null) 'roundingMode': _lowerCamel(roundingMode).toJS,
+    if (signDisplay != null) 'signDisplay': _lowerCamel(signDisplay).toJS,
+    if (intlIncrement != null && intlIncrement != 1)
+      'roundingIncrement': intlIncrement.toJS,
+    if (_recorded(d, 'stripIfInteger') != null)
+      'trailingZeroDisplay': 'stripIfInteger'.toJS,
   };
 }
 
@@ -485,10 +583,29 @@ void registerNumberFormat(JSObject module) {
     'DecimalGroupingStrategy',
     enumClass(const ['Auto', 'Never', 'Always', 'Min2']),
   );
-  // Only HalfExpand is needed — the shared Decimal mirror's roundWithMode
-  // passes it, and this shim ignores the mode (Intl already rounds
-  // halfExpand). Registered so `mode.toJs()` resolves rather than throwing.
-  put(module, 'DecimalSignedRoundingMode', enumClass(const ['HalfExpand']));
+  // The full ECMA-402 sets — the shared Decimal mirror's toJs() resolves
+  // sentinels here, and the intent recorder reads their names back to
+  // build the Intl options.
+  put(
+    module,
+    'DecimalSignedRoundingMode',
+    enumClass(const [
+      'Expand', 'Trunc', 'HalfExpand', 'HalfTrunc', 'HalfEven', //
+      'Ceil', 'Floor', 'HalfCeil', 'HalfFloor',
+    ]),
+  );
+  put(
+    module,
+    'DecimalSignDisplay',
+    enumClass(const ['Auto', 'Never', 'Always', 'ExceptZero', 'Negative']),
+  );
+  put(
+    module,
+    'DecimalRoundingIncrement',
+    enumClass(const [
+      'MultiplesOf1', 'MultiplesOf2', 'MultiplesOf5', 'MultiplesOf25', //
+    ]),
+  );
 
   put(
     module,

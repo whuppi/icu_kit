@@ -7,6 +7,9 @@ import 'icu_locale.dart';
 import 'icu_number_format.dart'
     show
         IcuGroupingStrategy,
+        IcuRoundingMode,
+        IcuSignDisplay,
+        IcuTrailingZeroDisplay,
         resolveGroupingStrategy,
         shapeDecimalDigits,
         shapedDecimalFfi;
@@ -93,6 +96,10 @@ final class IcuPercentFormat {
     int? maximumFractionDigits,
     int? minimumSignificantDigits,
     int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
   }) => _ffi.format(
     shapedDecimalFfi(
       value,
@@ -101,6 +108,10 @@ final class IcuPercentFormat {
       maximumFractionDigits: maximumFractionDigits,
       minimumSignificantDigits: minimumSignificantDigits,
       maximumSignificantDigits: maximumSignificantDigits,
+      roundingMode: roundingMode,
+      roundingIncrement: roundingIncrement,
+      trailingZeroDisplay: trailingZeroDisplay,
+      signDisplay: signDisplay,
     ),
   );
 
@@ -115,6 +126,10 @@ final class IcuPercentFormat {
     int? maximumFractionDigits,
     int? minimumSignificantDigits,
     int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
   }) => partsToList(
     _ffi.formatToParts(
       shapedDecimalFfi(
@@ -124,6 +139,10 @@ final class IcuPercentFormat {
         maximumFractionDigits: maximumFractionDigits,
         minimumSignificantDigits: minimumSignificantDigits,
         maximumSignificantDigits: maximumSignificantDigits,
+        roundingMode: roundingMode,
+        roundingIncrement: roundingIncrement,
+        trailingZeroDisplay: trailingZeroDisplay,
+        signDisplay: signDisplay,
       ),
     ),
   );

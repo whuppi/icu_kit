@@ -190,4 +190,186 @@ void main() {
       );
     });
   });
+
+  group('IcuNumberFormat — roundingMode (the nine ECMA-402 modes)', () {
+    late final IcuNumberFormat fmt;
+    setUpAll(() {
+      fmt = IcuNumberFormat.decimal(locale: 'en-US', useGrouping: false);
+    });
+
+    String r(num v, IcuRoundingMode mode) =>
+        fmt.format(v, maximumFractionDigits: 0, roundingMode: mode);
+
+    test('directional modes', () {
+      expect(r(1.1, IcuRoundingMode.ceil), '2');
+      expect(r(-1.1, IcuRoundingMode.ceil), '-1');
+      expect(r(1.9, IcuRoundingMode.floor), '1');
+      expect(r(-1.1, IcuRoundingMode.floor), '-2');
+      expect(r(1.1, IcuRoundingMode.expand), '2');
+      expect(r(-1.1, IcuRoundingMode.expand), '-2');
+      expect(r(1.9, IcuRoundingMode.trunc), '1');
+      expect(r(-1.9, IcuRoundingMode.trunc), '-1');
+    });
+
+    test('half modes break ties differently', () {
+      expect(r(2.5, IcuRoundingMode.halfExpand), '3');
+      expect(r(2.5, IcuRoundingMode.halfTrunc), '2');
+      expect(r(2.5, IcuRoundingMode.halfEven), '2');
+      expect(r(3.5, IcuRoundingMode.halfEven), '4');
+      expect(r(-2.5, IcuRoundingMode.halfCeil), '-2');
+      expect(r(-2.5, IcuRoundingMode.halfFloor), '-3');
+    });
+
+    test('a custom mode applies on the significant-digits path', () {
+      expect(
+        fmt.format(
+          1234,
+          maximumSignificantDigits: 2,
+          roundingMode: IcuRoundingMode.floor,
+        ),
+        '1200',
+      );
+      expect(
+        fmt.format(
+          1250,
+          maximumSignificantDigits: 2,
+          roundingMode: IcuRoundingMode.ceil,
+        ),
+        '1300',
+      );
+    });
+  });
+
+  group('IcuNumberFormat — signDisplay', () {
+    late final IcuNumberFormat fmt;
+    setUpAll(() {
+      fmt = IcuNumberFormat.decimal(locale: 'en-US', useGrouping: false);
+    });
+
+    test('always adds a plus on positives and zero', () {
+      expect(fmt.format(5, signDisplay: IcuSignDisplay.always), '+5');
+      expect(fmt.format(0, signDisplay: IcuSignDisplay.always), '+0');
+      expect(fmt.format(-5, signDisplay: IcuSignDisplay.always), '-5');
+    });
+
+    test('never strips the minus', () {
+      expect(fmt.format(-5, signDisplay: IcuSignDisplay.never), '5');
+    });
+
+    test('exceptZero signs non-zero values only', () {
+      expect(fmt.format(5, signDisplay: IcuSignDisplay.exceptZero), '+5');
+      expect(fmt.format(0, signDisplay: IcuSignDisplay.exceptZero), '0');
+      expect(fmt.format(-5, signDisplay: IcuSignDisplay.exceptZero), '-5');
+    });
+
+    test('the sign reflects the ROUNDED value', () {
+      // -0.4 rounds to -0 at 0 fraction digits; exceptZero must not sign it.
+      expect(
+        fmt.format(
+          -0.4,
+          maximumFractionDigits: 0,
+          signDisplay: IcuSignDisplay.exceptZero,
+        ),
+        '0',
+      );
+    });
+  });
+
+  group('IcuNumberFormat — trailingZeroDisplay', () {
+    late final IcuNumberFormat fmt;
+    setUpAll(() {
+      fmt = IcuNumberFormat.decimal(locale: 'en-US', useGrouping: false);
+    });
+
+    test('stripIfInteger drops padded zeros on whole numbers only', () {
+      expect(
+        fmt.format(
+          5,
+          minimumFractionDigits: 2,
+          trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger,
+        ),
+        '5',
+      );
+      expect(
+        fmt.format(
+          5.5,
+          minimumFractionDigits: 2,
+          trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger,
+        ),
+        '5.50',
+      );
+    });
+  });
+
+  group('IcuNumberFormat — roundingIncrement', () {
+    late final IcuNumberFormat fmt;
+    setUpAll(() {
+      fmt = IcuNumberFormat.decimal(locale: 'en-US', useGrouping: false);
+    });
+
+    test('increment 25 at 2 fraction digits snaps to quarters', () {
+      expect(
+        fmt.format(
+          1.13,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+          roundingIncrement: 25,
+        ),
+        '1.25',
+      );
+    });
+
+    test('increment 50 at 2 fraction digits snaps to halves', () {
+      expect(
+        fmt.format(
+          1.13,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+          roundingIncrement: 50,
+        ),
+        '1.00',
+      );
+    });
+
+    test('increment 5 at 0 fraction digits (nickel-rounds integers)', () {
+      expect(
+        fmt.format(12, maximumFractionDigits: 0, roundingIncrement: 5),
+        '10',
+      );
+    });
+
+    test('increment with significant digits throws', () {
+      expect(
+        () => fmt.format(
+          5,
+          maximumSignificantDigits: 2,
+          roundingIncrement: 5,
+        ),
+        throwsA(isA<IcuDataError>()),
+      );
+    });
+
+    test('increment without an explicit matching maxFrac throws', () {
+      expect(
+        () => fmt.format(5, roundingIncrement: 5),
+        throwsA(isA<IcuDataError>()),
+      );
+      expect(
+        () => fmt.format(
+          5,
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 2,
+          roundingIncrement: 5,
+        ),
+        throwsA(isA<IcuDataError>()),
+      );
+    });
+
+    test('an out-of-set increment throws', () {
+      expect(
+        () => fmt.format(5, maximumFractionDigits: 0, roundingIncrement: 30),
+        throwsA(isA<IcuDataError>()),
+      );
+    });
+  });
 }

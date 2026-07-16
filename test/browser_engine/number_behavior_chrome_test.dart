@@ -104,6 +104,78 @@ void main() {
       expect(plain, isNot(contains('1,234')));
     }, tags: ['experimental_unit']);
 
+    test('roundingMode: nine ECMA-402 modes reach Intl', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      String r(num v, IcuRoundingMode mode) =>
+          fmt.format(v, maximumFractionDigits: 0, roundingMode: mode);
+      expect(r(1.1, IcuRoundingMode.ceil), '2');
+      expect(r(1.9, IcuRoundingMode.floor), '1');
+      expect(r(2.5, IcuRoundingMode.halfEven), '2');
+      expect(r(-1.9, IcuRoundingMode.trunc), '-1');
+    });
+
+    test('signDisplay reaches Intl (always / never / exceptZero)', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(fmt.format(5, signDisplay: IcuSignDisplay.always), '+5');
+      expect(fmt.format(-5, signDisplay: IcuSignDisplay.never), '5');
+      expect(fmt.format(0, signDisplay: IcuSignDisplay.exceptZero), '0');
+    });
+
+    test('trailingZeroDisplay: stripIfInteger reaches Intl', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(
+        fmt.format(
+          5,
+          minimumFractionDigits: 2,
+          trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger,
+        ),
+        '5',
+      );
+      expect(
+        fmt.format(
+          5.5,
+          minimumFractionDigits: 2,
+          trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger,
+        ),
+        '5.50',
+      );
+    });
+
+    test('roundingIncrement reaches Intl (25 @ 2fd, 50 @ 2fd, 5 @ 0fd)', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(
+        fmt.format(
+          1.13,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+          roundingIncrement: 25,
+        ),
+        '1.25',
+      );
+      expect(
+        fmt.format(
+          1.13,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+          roundingIncrement: 50,
+        ),
+        '1.00',
+      );
+      expect(
+        fmt.format(12, maximumFractionDigits: 0, roundingIncrement: 5),
+        '10',
+      );
+    });
+
+    test('minSig on a large integer maps to significant digits, '
+        'not a negative fraction bound', () {
+      // padEnd(magnitudeEnd - minSig + 1) is a POSITIVE position here; the
+      // shim must express it as minimumSignificantDigits — a negative
+      // minimumFractionDigits would be an Intl RangeError.
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(fmt.format(1234, minimumSignificantDigits: 2), '1,234');
+    });
+
     test('long currency useGrouping: false drops separators (browser Intl)', () {
       final plain = IcuCurrencyFormat.long(
         locale: 'en-US',

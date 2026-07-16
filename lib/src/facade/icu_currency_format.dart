@@ -7,6 +7,9 @@ import 'icu_locale.dart';
 import 'icu_number_format.dart'
     show
         IcuGroupingStrategy,
+        IcuRoundingMode,
+        IcuSignDisplay,
+        IcuTrailingZeroDisplay,
         resolveGroupingStrategy,
         shapeDecimalDigits,
         shapedDecimalFfi;
@@ -139,6 +142,10 @@ final class IcuCurrencyFormat {
     int? maximumFractionDigits,
     int? minimumSignificantDigits,
     int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
   }) {
     final decimal = shapedDecimalFfi(
       value,
@@ -147,6 +154,10 @@ final class IcuCurrencyFormat {
       maximumFractionDigits: maximumFractionDigits,
       minimumSignificantDigits: minimumSignificantDigits,
       maximumSignificantDigits: maximumSignificantDigits,
+      roundingMode: roundingMode,
+      roundingIncrement: roundingIncrement,
+      trailingZeroDisplay: trailingZeroDisplay,
+      signDisplay: signDisplay,
     );
     final symbol = _symbol;
     if (symbol != null) {
@@ -175,6 +186,10 @@ final class IcuCurrencyFormat {
     int? maximumFractionDigits,
     int? minimumSignificantDigits,
     int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
   }) {
     final decimal = shapedDecimalFfi(
       value,
@@ -183,6 +198,10 @@ final class IcuCurrencyFormat {
       maximumFractionDigits: maximumFractionDigits,
       minimumSignificantDigits: minimumSignificantDigits,
       maximumSignificantDigits: maximumSignificantDigits,
+      roundingMode: roundingMode,
+      roundingIncrement: roundingIncrement,
+      trailingZeroDisplay: trailingZeroDisplay,
+      signDisplay: signDisplay,
     );
     final symbol = _symbol;
     if (symbol != null) {

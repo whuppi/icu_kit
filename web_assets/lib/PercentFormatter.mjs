@@ -2,6 +2,7 @@
 import { DataError } from "./DataError.mjs"
 import { DataProvider } from "./DataProvider.mjs"
 import { Decimal } from "./Decimal.mjs"
+import { DecimalGroupingStrategy } from "./DecimalGroupingStrategy.mjs"
 import { FormattedNumberParts } from "./FormattedNumberParts.mjs"
 import { Locale } from "./Locale.mjs"
 import { PercentDisplay } from "./PercentDisplay.mjs"
@@ -54,13 +55,13 @@ export class PercentFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/percent/formatter/struct.PercentFormatter.html#method.try_new) for more information.
      */
-    static createWithDisplay(locale, display) {
+    static createWithDisplay(locale, display, groupingStrategy) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 5, 4, true);
 
 
-        const result = wasm.icu4x_PercentFormatter_create_with_display_mv1(diplomatReceive.buffer, locale.ffiValue, diplomatRuntime.optionToBufferForCalling(wasm, display, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
+        const result = wasm.icu4x_PercentFormatter_create_with_display_mv1(diplomatReceive.buffer, locale.ffiValue, diplomatRuntime.optionToBufferForCalling(wasm, display, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]), diplomatRuntime.optionToBufferForCalling(wasm, groupingStrategy, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
 
         try {
             if (!diplomatReceive.resultFlag) {
@@ -78,13 +79,13 @@ export class PercentFormatter {
         }
     }
 
-    static createWithDisplayWithProvider(provider, locale, display) {
+    static createWithDisplayWithProvider(provider, locale, display, groupingStrategy) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 5, 4, true);
 
 
-        const result = wasm.icu4x_PercentFormatter_create_with_display_with_provider_mv1(diplomatReceive.buffer, provider.ffiValue, locale.ffiValue, diplomatRuntime.optionToBufferForCalling(wasm, display, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
+        const result = wasm.icu4x_PercentFormatter_create_with_display_with_provider_mv1(diplomatReceive.buffer, provider.ffiValue, locale.ffiValue, diplomatRuntime.optionToBufferForCalling(wasm, display, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]), diplomatRuntime.optionToBufferForCalling(wasm, groupingStrategy, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
 
         try {
             if (!diplomatReceive.resultFlag) {

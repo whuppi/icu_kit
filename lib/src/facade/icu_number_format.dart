@@ -213,6 +213,14 @@ icu.Decimal _toDecimal(num value) {
   return icu.Decimal.fromDoubleWithRoundTripPrecision(value as double);
 }
 
+/// Shared `useGrouping` / [IcuGroupingStrategy] → binding-enum mapping,
+/// reused by the percent / currency / unit facades so all four number
+/// styles resolve grouping identically.
+icu.DecimalGroupingStrategy? resolveGroupingStrategy(
+  bool? useGrouping,
+  IcuGroupingStrategy? explicit,
+) => _resolveGroupingStrategy(useGrouping, explicit);
+
 icu.DecimalGroupingStrategy? _resolveGroupingStrategy(
   bool? useGrouping,
   IcuGroupingStrategy? explicit,

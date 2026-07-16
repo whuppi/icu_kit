@@ -4,7 +4,12 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show shapedDecimalFfi, shapeDecimalDigits;
+import 'icu_number_format.dart'
+    show
+        IcuGroupingStrategy,
+        resolveGroupingStrategy,
+        shapeDecimalDigits,
+        shapedDecimalFfi;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — locale-aware percent formatting.
@@ -48,17 +53,20 @@ final class IcuPercentFormat {
   factory IcuPercentFormat({
     required String locale,
     IcuPercentDisplay display = IcuPercentDisplay.standard,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     final loc = IcuLocale.parse(locale);
     try {
       final formatter = dispatch.percentFormatterWithDisplay(
         locale,
         loc.ffi,
-        switch (display) {
+        display: switch (display) {
           IcuPercentDisplay.standard => icu.PercentDisplay.standard,
           IcuPercentDisplay.approximate => icu.PercentDisplay.approximate,
           IcuPercentDisplay.explicitSign => icu.PercentDisplay.explicitSign,
         },
+        groupingStrategy: resolveGroupingStrategy(useGrouping, groupingStrategy),
       );
       return IcuPercentFormat._(formatter);
     } catch (e) {

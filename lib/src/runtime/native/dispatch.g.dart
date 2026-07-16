@@ -446,13 +446,23 @@ icu.ComposingNormalizer composingNormalizerNfkc() {
 
 icu.CurrencyFormatter currencyFormatterWithWidth(
   String localeStr,
-  icu.Locale locale, [
+  icu.Locale locale, {
   icu.CurrencyWidth? width,
-]) {
+  icu.DecimalGroupingStrategy? groupingStrategy,
+}) {
   final p = IcuKit.providerFor(localeStr);
   return p == null
-      ? icu.CurrencyFormatter.withWidth(locale, width)
-      : icu.CurrencyFormatter.withWidthWithProvider(p, locale, width);
+      ? icu.CurrencyFormatter.withWidth(
+          locale,
+          width: width,
+          groupingStrategy: groupingStrategy,
+        )
+      : icu.CurrencyFormatter.withWidthWithProvider(
+          p,
+          locale,
+          width: width,
+          groupingStrategy: groupingStrategy,
+        );
 }
 
 icu.DateFormatter dateFormatterD(
@@ -1001,27 +1011,43 @@ icu.LocaleFallbacker localeFallbackerDefault() {
 icu.LongCurrencyFormatter longCurrencyFormatterForCurrency(
   String localeStr,
   icu.Locale locale,
-  String currencyCode,
-) {
+  String currencyCode, [
+  icu.DecimalGroupingStrategy? groupingStrategy,
+]) {
   final p = IcuKit.providerFor(localeStr);
   return p == null
-      ? icu.LongCurrencyFormatter.forCurrency(locale, currencyCode)
+      ? icu.LongCurrencyFormatter.forCurrency(
+          locale,
+          currencyCode,
+          groupingStrategy,
+        )
       : icu.LongCurrencyFormatter.forCurrencyWithProvider(
           p,
           locale,
           currencyCode,
+          groupingStrategy,
         );
 }
 
 icu.PercentFormatter percentFormatterWithDisplay(
   String localeStr,
-  icu.Locale locale, [
+  icu.Locale locale, {
   icu.PercentDisplay? display,
-]) {
+  icu.DecimalGroupingStrategy? groupingStrategy,
+}) {
   final p = IcuKit.providerFor(localeStr);
   return p == null
-      ? icu.PercentFormatter.withDisplay(locale, display)
-      : icu.PercentFormatter.withDisplayWithProvider(p, locale, display);
+      ? icu.PercentFormatter.withDisplay(
+          locale,
+          display: display,
+          groupingStrategy: groupingStrategy,
+        )
+      : icu.PercentFormatter.withDisplayWithProvider(
+          p,
+          locale,
+          display: display,
+          groupingStrategy: groupingStrategy,
+        );
 }
 
 icu.PluralRules pluralRulesCardinal(String localeStr, icu.Locale locale) {
@@ -1545,17 +1571,24 @@ icu.TitlecaseMapper titlecaseMapperDefault() {
 icu.UnitsFormatter unitsFormatterForUnit(
   String localeStr,
   icu.Locale locale,
-  String unitIdentifier, [
+  String unitIdentifier, {
   icu.UnitsWidth? width,
-]) {
+  icu.DecimalGroupingStrategy? groupingStrategy,
+}) {
   final p = IcuKit.providerFor(localeStr);
   return p == null
-      ? icu.UnitsFormatter.forUnit(locale, unitIdentifier, width)
+      ? icu.UnitsFormatter.forUnit(
+          locale,
+          unitIdentifier,
+          width: width,
+          groupingStrategy: groupingStrategy,
+        )
       : icu.UnitsFormatter.forUnitWithProvider(
           p,
           locale,
           unitIdentifier,
-          width,
+          width: width,
+          groupingStrategy: groupingStrategy,
         );
 }
 

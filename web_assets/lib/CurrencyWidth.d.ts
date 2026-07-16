@@ -21,6 +21,11 @@ export class CurrencyWidth {
 
     static Short : CurrencyWidth;
     static Narrow : CurrencyWidth;
+    /**
+     * ISO 4217 code display (e.g. "USD 1.00"). icu_kit fork addition for
+     * ECMA-402 `currencyDisplay: "code"`.
+     */
+    static Code : CurrencyWidth;
 
 
     constructor(value: CurrencyWidth | string );

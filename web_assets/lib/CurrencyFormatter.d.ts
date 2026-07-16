@@ -3,6 +3,7 @@ import type { CurrencyWidth } from "./CurrencyWidth"
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { DecimalGroupingStrategy } from "./DecimalGroupingStrategy"
 import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
@@ -31,9 +32,9 @@ export class CurrencyFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/formatter/struct.CurrencyFormatter.html#method.try_new) for more information.
      */
-    static createWithWidth(locale: Locale, width: CurrencyWidth | null): CurrencyFormatter;
+    static createWithWidth(locale: Locale, width: CurrencyWidth | null, groupingStrategy: DecimalGroupingStrategy | null): CurrencyFormatter;
 
-    static createWithWidthWithProvider(provider: DataProvider, locale: Locale, width: CurrencyWidth | null): CurrencyFormatter;
+    static createWithWidthWithProvider(provider: DataProvider, locale: Locale, width: CurrencyWidth | null, groupingStrategy: DecimalGroupingStrategy | null): CurrencyFormatter;
 
     /**
      * Format `value` with `currency_code` (3-letter ISO 4217, e.g. "USD").

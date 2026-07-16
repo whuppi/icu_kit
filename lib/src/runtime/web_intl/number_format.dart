@@ -221,18 +221,28 @@ JSObject _decimalFormatter(JSObject locale, JSObject? strategy) {
 // CurrencyWidth sentinel → currencyDisplay for the symbol formatter.
 String _currencyDisplay(JSObject? width) {
   final v = width == null ? 'Short' : enumStringValue(width);
-  return v == 'Narrow' ? 'narrowSymbol' : 'symbol';
+  return switch (v) {
+    'Narrow' => 'narrowSymbol',
+    'Code' => 'code',
+    _ => 'symbol',
+  };
 }
 
-JSObject _currencyFormatter(JSObject locale, JSObject? width) {
+JSObject _currencyFormatter(
+  JSObject locale,
+  JSObject? width, [
+  JSObject? grouping,
+]) {
   final tag = localeTag(locale);
   final display = _currencyDisplay(width);
+  final useGrouping = _useGrouping(grouping);
   final o = JSObject();
   // Symbol form: currency code arrives at format time.
   JSObject options(JSObject decimal, JSString currencyCode) => jsOptions({
     'style': 'currency'.toJS,
     'currency': currencyCode,
     'currencyDisplay': display.toJS,
+    'useGrouping': useGrouping,
     ..._digitJsOptions(decimal),
   });
 
@@ -251,13 +261,19 @@ JSObject _currencyFormatter(JSObject locale, JSObject? width) {
   return o;
 }
 
-JSObject _longCurrencyFormatter(JSObject locale, JSString currencyCode) {
+JSObject _longCurrencyFormatter(
+  JSObject locale,
+  JSString currencyCode, [
+  JSObject? grouping,
+]) {
   final tag = localeTag(locale);
+  final useGrouping = _useGrouping(grouping);
   final o = JSObject();
   JSObject options(JSObject decimal) => jsOptions({
     'style': 'currency'.toJS,
     'currency': currencyCode,
     'currencyDisplay': 'name'.toJS,
+    'useGrouping': useGrouping,
     ..._digitJsOptions(decimal),
   });
 
@@ -310,18 +326,24 @@ _percentAffixParts(String tag) {
   return (before, after);
 }
 
-JSObject _percentFormatter(JSObject locale, JSObject? display) {
+JSObject _percentFormatter(
+  JSObject locale,
+  JSObject? display, [
+  JSObject? grouping,
+]) {
   final tag = localeTag(locale);
   final mode = display == null ? 'Standard' : enumStringValue(display);
   // ExplicitSign → always show sign. Approximate has no Intl equivalent;
   // rendered as Standard (documented PARTIAL).
   final signDisplay = (mode == 'ExplicitSign' ? 'always' : 'auto').toJS;
+  final useGrouping = _useGrouping(grouping);
   final (beforeParts, afterParts) = _percentAffixParts(tag);
   final before = beforeParts.map((p) => p.$2).join();
   final after = afterParts.map((p) => p.$2).join();
   final o = JSObject();
   JSObject numOptions(JSObject decimal) => jsOptions({
     'signDisplay': signDisplay,
+    'useGrouping': useGrouping,
     ..._digitJsOptions(decimal),
   });
 
@@ -359,13 +381,19 @@ String _unitDisplay(JSObject? width) {
   };
 }
 
-JSObject _unitsFormatter(JSObject locale, JSString unitId, JSObject? width) {
+JSObject _unitsFormatter(
+  JSObject locale,
+  JSString unitId,
+  JSObject? width, [
+  JSObject? grouping,
+]) {
   final tag = localeTag(locale);
   final display = _unitDisplay(width);
   final base = <String, JSAny?>{
     'style': 'unit'.toJS,
     'unit': unitId,
     'unitDisplay': display.toJS,
+    'useGrouping': _useGrouping(grouping),
   };
   // Build the zero-fraction formatter at CREATION — it doubles as the unit
   // validator (Intl.NumberFormat throws RangeError for a unit outside the
@@ -467,23 +495,21 @@ void registerNumberFormat(JSObject module) {
     'CurrencyFormatter',
     staticClass({
       'createWithWidth':
-          ((JSObject locale, [JSObject? width]) => _currencyFormatter(
-            locale,
-            width,
-          )).toJS,
+          ((JSObject locale, [JSObject? width, JSObject? grouping]) =>
+                  _currencyFormatter(locale, width, grouping))
+              .toJS,
     }),
   );
-  put(module, 'CurrencyWidth', enumClass(const ['Short', 'Narrow']));
+  put(module, 'CurrencyWidth', enumClass(const ['Short', 'Narrow', 'Code']));
 
   put(
     module,
     'LongCurrencyFormatter',
     staticClass({
       'createForCurrency':
-          ((JSObject locale, JSString code) => _longCurrencyFormatter(
-            locale,
-            code,
-          )).toJS,
+          ((JSObject locale, JSString code, [JSObject? grouping]) =>
+                  _longCurrencyFormatter(locale, code, grouping))
+              .toJS,
     }),
   );
 
@@ -492,10 +518,9 @@ void registerNumberFormat(JSObject module) {
     'PercentFormatter',
     staticClass({
       'createWithDisplay':
-          ((JSObject locale, [JSObject? display]) => _percentFormatter(
-            locale,
-            display,
-          )).toJS,
+          ((JSObject locale, [JSObject? display, JSObject? grouping]) =>
+                  _percentFormatter(locale, display, grouping))
+              .toJS,
     }),
   );
   put(
@@ -509,8 +534,9 @@ void registerNumberFormat(JSObject module) {
     'UnitsFormatter',
     staticClass({
       'createForUnit':
-          ((JSObject locale, JSString unit, [JSObject? width]) =>
-                  _unitsFormatter(locale, unit, width))
+          ((JSObject locale, JSString unit,
+                      [JSObject? width, JSObject? grouping]) =>
+                  _unitsFormatter(locale, unit, width, grouping))
               .toJS,
     }),
   );

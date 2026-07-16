@@ -11,7 +11,10 @@ enum CurrencyWidth {
   // ignore: public_member_api_docs
   short,
   // ignore: public_member_api_docs
-  narrow;
+  narrow,
+  /// ISO 4217 code display (e.g. "USD 1.00"). icu_kit fork addition for
+  /// ECMA-402 `currencyDisplay: "code"`.
+  code;
 
 }
 

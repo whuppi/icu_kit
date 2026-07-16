@@ -834,14 +834,20 @@ icu.ComposingNormalizer composingNormalizerNfkc() {
 
 icu.CurrencyFormatter currencyFormatterWithWidth(
   String localeStr,
-  icu.Locale locale, [
+  icu.Locale locale, {
   icu.CurrencyWidth? width,
-]) {
+  icu.DecimalGroupingStrategy? groupingStrategy,
+}) {
   final cls = IcuKit.module.getProperty<JSObject>('CurrencyFormatter'.toJS);
   final p = IcuKit.providerFor(localeStr);
   if (p == null) {
     return icu.CurrencyFormatter.fromDispatch(
-      cls.callMethod<JSObject>('createWithWidth'.toJS, locale, width?.toJs()),
+      cls.callMethod<JSObject>(
+        'createWithWidth'.toJS,
+        locale,
+        width?.toJs(),
+        groupingStrategy?.toJs(),
+      ),
     );
   }
   return icu.CurrencyFormatter.fromDispatch(
@@ -850,6 +856,7 @@ icu.CurrencyFormatter currencyFormatterWithWidth(
       p,
       locale,
       width?.toJs(),
+      groupingStrategy?.toJs(),
     ),
   );
 }
@@ -1714,8 +1721,9 @@ icu.LocaleFallbacker localeFallbackerDefault() {
 icu.LongCurrencyFormatter longCurrencyFormatterForCurrency(
   String localeStr,
   icu.Locale locale,
-  String currencyCode,
-) {
+  String currencyCode, [
+  icu.DecimalGroupingStrategy? groupingStrategy,
+]) {
   final cls = IcuKit.module.getProperty<JSObject>('LongCurrencyFormatter'.toJS);
   final p = IcuKit.providerFor(localeStr);
   if (p == null) {
@@ -1724,6 +1732,7 @@ icu.LongCurrencyFormatter longCurrencyFormatterForCurrency(
         'createForCurrency'.toJS,
         locale,
         currencyCode.toJS,
+        groupingStrategy?.toJs(),
       ),
     );
   }
@@ -1733,15 +1742,17 @@ icu.LongCurrencyFormatter longCurrencyFormatterForCurrency(
       p,
       locale,
       currencyCode.toJS,
+      groupingStrategy?.toJs(),
     ),
   );
 }
 
 icu.PercentFormatter percentFormatterWithDisplay(
   String localeStr,
-  icu.Locale locale, [
+  icu.Locale locale, {
   icu.PercentDisplay? display,
-]) {
+  icu.DecimalGroupingStrategy? groupingStrategy,
+}) {
   final cls = IcuKit.module.getProperty<JSObject>('PercentFormatter'.toJS);
   final p = IcuKit.providerFor(localeStr);
   if (p == null) {
@@ -1750,6 +1761,7 @@ icu.PercentFormatter percentFormatterWithDisplay(
         'createWithDisplay'.toJS,
         locale,
         display?.toJs(),
+        groupingStrategy?.toJs(),
       ),
     );
   }
@@ -1759,6 +1771,7 @@ icu.PercentFormatter percentFormatterWithDisplay(
       p,
       locale,
       display?.toJs(),
+      groupingStrategy?.toJs(),
     ),
   );
 }
@@ -2798,9 +2811,10 @@ icu.TitlecaseMapper titlecaseMapperDefault() {
 icu.UnitsFormatter unitsFormatterForUnit(
   String localeStr,
   icu.Locale locale,
-  String unitIdentifier, [
+  String unitIdentifier, {
   icu.UnitsWidth? width,
-]) {
+  icu.DecimalGroupingStrategy? groupingStrategy,
+}) {
   final cls = IcuKit.module.getProperty<JSObject>('UnitsFormatter'.toJS);
   final p = IcuKit.providerFor(localeStr);
   if (p == null) {
@@ -2810,17 +2824,18 @@ icu.UnitsFormatter unitsFormatterForUnit(
         locale,
         unitIdentifier.toJS,
         width?.toJs(),
+        groupingStrategy?.toJs(),
       ),
     );
   }
   return icu.UnitsFormatter.fromDispatch(
-    cls.callMethod<JSObject>(
-      'createForUnitWithProvider'.toJS,
+    cls.callMethodVarArgs<JSObject>('createForUnitWithProvider'.toJS, [
       p,
       locale,
       unitIdentifier.toJS,
       width?.toJs(),
-    ),
+      groupingStrategy?.toJs(),
+    ]),
   );
 }
 

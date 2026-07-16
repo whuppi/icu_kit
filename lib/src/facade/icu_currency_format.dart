@@ -4,7 +4,12 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show shapedDecimalFfi, shapeDecimalDigits;
+import 'icu_number_format.dart'
+    show
+        IcuGroupingStrategy,
+        resolveGroupingStrategy,
+        shapeDecimalDigits,
+        shapedDecimalFfi;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — currency-aware decimal formatting.
@@ -50,16 +55,20 @@ final class IcuCurrencyFormat {
   factory IcuCurrencyFormat.symbol({
     required String locale,
     IcuCurrencyWidth width = IcuCurrencyWidth.short,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     final loc = IcuLocale.parse(locale);
     try {
       final formatter = dispatch.currencyFormatterWithWidth(
         locale,
         loc.ffi,
-        switch (width) {
+        width: switch (width) {
           IcuCurrencyWidth.short => icu.CurrencyWidth.short,
           IcuCurrencyWidth.narrow => icu.CurrencyWidth.narrow,
+          IcuCurrencyWidth.code => icu.CurrencyWidth.code,
         },
+        groupingStrategy: resolveGroupingStrategy(useGrouping, groupingStrategy),
       );
       return IcuCurrencyFormat._symbol(formatter);
     } catch (e) {
@@ -81,6 +90,8 @@ final class IcuCurrencyFormat {
   factory IcuCurrencyFormat.long({
     required String locale,
     required String currencyCode,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     if (currencyCode.length != 3) {
       throw IcuDataError(
@@ -95,6 +106,7 @@ final class IcuCurrencyFormat {
         locale,
         loc.ffi,
         currencyCode,
+        resolveGroupingStrategy(useGrouping, groupingStrategy),
       );
       return IcuCurrencyFormat._long(formatter, currencyCode);
     } catch (e) {
@@ -204,4 +216,9 @@ enum IcuCurrencyWidth {
   /// Narrow form — e.g. "$1" everywhere (ambiguous on purpose, for tight
   /// columns where the locale-specific differentiation is undesirable).
   narrow,
+
+  /// ISO 4217 code form — e.g. "USD 1.00" in en-US. The 3-letter code with
+  /// the alpha-next-to-number spacing CLDR uses for alphabetic displays.
+  /// Maps to ECMA-402 `currencyDisplay: "code"`.
+  code,
 }

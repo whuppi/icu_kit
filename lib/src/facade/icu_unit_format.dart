@@ -4,7 +4,12 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show shapedDecimalFfi, shapeDecimalDigits;
+import 'icu_number_format.dart'
+    show
+        IcuGroupingStrategy,
+        resolveGroupingStrategy,
+        shapeDecimalDigits,
+        shapedDecimalFfi;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — locale-aware unit formatting.
@@ -64,6 +69,8 @@ final class IcuUnitFormat {
     required String locale,
     required String unit,
     IcuUnitWidth width = IcuUnitWidth.short,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     if (unit.isEmpty) {
       throw IcuDataError(
@@ -78,11 +85,12 @@ final class IcuUnitFormat {
         locale,
         loc.ffi,
         unit,
-        switch (width) {
+        width: switch (width) {
           IcuUnitWidth.long => icu.UnitsWidth.long,
           IcuUnitWidth.short => icu.UnitsWidth.short,
           IcuUnitWidth.narrow => icu.UnitsWidth.narrow,
         },
+        groupingStrategy: resolveGroupingStrategy(useGrouping, groupingStrategy),
       );
       return IcuUnitFormat._(formatter, unit);
     } catch (e) {

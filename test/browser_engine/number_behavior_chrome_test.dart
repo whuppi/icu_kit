@@ -60,6 +60,18 @@ void main() {
       expect(out, contains('234'));
     }, tags: ['experimental_currency']);
 
+    test('currency Code width renders the ISO code, not the symbol', () {
+      // Exercises the CurrencyWidth.code round-trip through the browser Intl
+      // shim: Dart enum → JS 'Code' sentinel → currencyDisplay: 'code'.
+      final out = IcuCurrencyFormat.symbol(
+        locale: 'en-US',
+        width: IcuCurrencyWidth.code,
+      ).format(1234.56, currencyCode: 'USD');
+      expect(out, contains('USD'));
+      expect(out, contains('234'));
+      expect(out, isNot(contains(r'$')));
+    }, tags: ['experimental_currency']);
+
     test('percent formats value as-is (no ×100)', () {
       // icu4x: 42 → "42%", NOT "4200%".
       final out = IcuPercentFormat(locale: 'en-US').format(42);
@@ -67,6 +79,40 @@ void main() {
       expect(out, contains('%'));
       expect(out, isNot(contains('4200')));
     }, tags: ['experimental_percent']);
+
+    test('currency useGrouping: false drops separators (browser Intl)', () {
+      final plain = IcuCurrencyFormat.symbol(locale: 'en-US', useGrouping: false)
+          .format(1234567, currencyCode: 'USD');
+      expect(plain, contains('1234567'));
+      expect(plain, isNot(contains('1,234')));
+    }, tags: ['experimental_currency']);
+
+    test('percent useGrouping: false drops separators (browser Intl)', () {
+      final plain =
+          IcuPercentFormat(locale: 'en-US', useGrouping: false).format(1234);
+      expect(plain, contains('1234'));
+      expect(plain, isNot(contains('1,234')));
+    }, tags: ['experimental_percent']);
+
+    test('unit useGrouping: false drops separators (browser Intl)', () {
+      final plain = IcuUnitFormat(
+        locale: 'en-US',
+        unit: 'meter',
+        useGrouping: false,
+      ).format(1234567);
+      expect(plain, contains('1234567'));
+      expect(plain, isNot(contains('1,234')));
+    }, tags: ['experimental_unit']);
+
+    test('long currency useGrouping: false drops separators (browser Intl)', () {
+      final plain = IcuCurrencyFormat.long(
+        locale: 'en-US',
+        currencyCode: 'USD',
+        useGrouping: false,
+      ).format(1234567);
+      expect(plain, contains('1234567'));
+      expect(plain, isNot(contains('1,234')));
+    }, tags: ['experimental_currency']);
 
     test(
       'percent affix survives a prefix-% locale (Turkish)',

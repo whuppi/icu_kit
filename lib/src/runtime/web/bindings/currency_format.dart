@@ -52,7 +52,11 @@ enum CurrencyWidth {
   short,
 
   /// Narrowest symbol (e.g. "$" even where ambiguous).
-  narrow;
+  narrow,
+
+  /// ISO 4217 code display (e.g. "USD 1.00"). Maps to ECMA-402
+  /// `currencyDisplay: "code"`.
+  code;
 
   /// The JS enum value for this width.
   JSObject toJs() {
@@ -60,6 +64,7 @@ enum CurrencyWidth {
     return cls.getProperty<JSObject>(switch (this) {
       CurrencyWidth.short => 'Short'.toJS,
       CurrencyWidth.narrow => 'Narrow'.toJS,
+      CurrencyWidth.code => 'Code'.toJS,
     });
   }
 }

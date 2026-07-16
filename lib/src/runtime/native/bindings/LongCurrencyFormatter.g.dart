@@ -35,9 +35,9 @@ final class LongCurrencyFormatter implements ffi.Finalizable {
   /// See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/long_formatter/struct.LongCurrencyFormatter.html#method.try_new) for more information.
   ///
   /// Throws [DataError] on failure.
-  factory LongCurrencyFormatter.forCurrency(Locale locale, String currencyCode) {
+  factory LongCurrencyFormatter.forCurrency(Locale locale, String currencyCode, [DecimalGroupingStrategy? groupingStrategy]) {
     final temp = _FinalizedArena();
-    final result = _icu4x_LongCurrencyFormatter_create_for_currency_mv1(locale._ffi, currencyCode._utf8AllocIn(temp.arena));
+    final result = _icu4x_LongCurrencyFormatter_create_for_currency_mv1(locale._ffi, currencyCode._utf8AllocIn(temp.arena), groupingStrategy != null ? _ResultInt32Void.ok(groupingStrategy.index) : _ResultInt32Void.err());
     if (!result.isOk) {
       throw DataError.values[result.union.err];
     }
@@ -47,9 +47,9 @@ final class LongCurrencyFormatter implements ffi.Finalizable {
   ///
   ///
   /// Throws [DataError] on failure.
-  factory LongCurrencyFormatter.forCurrencyWithProvider(DataProvider provider, Locale locale, String currencyCode) {
+  factory LongCurrencyFormatter.forCurrencyWithProvider(DataProvider provider, Locale locale, String currencyCode, [DecimalGroupingStrategy? groupingStrategy]) {
     final temp = _FinalizedArena();
-    final result = _icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1(provider._ffi, locale._ffi, currencyCode._utf8AllocIn(temp.arena));
+    final result = _icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1(provider._ffi, locale._ffi, currencyCode._utf8AllocIn(temp.arena), groupingStrategy != null ? _ResultInt32Void.ok(groupingStrategy.index) : _ResultInt32Void.err());
     if (!result.isOk) {
       throw DataError.values[result.union.err];
     }
@@ -82,14 +82,14 @@ final class LongCurrencyFormatter implements ffi.Finalizable {
 external void _icu4x_LongCurrencyFormatter_destroy_mv1(ffi.Pointer<ffi.Void> self);
 
 @_DiplomatFfiUse('icu4x_LongCurrencyFormatter_create_for_currency_mv1')
-@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, _SliceUtf8)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_create_for_currency_mv1')
+@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, _SliceUtf8, _ResultInt32Void)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_create_for_currency_mv1')
 // ignore: non_constant_identifier_names
-external _ResultOpaqueInt32 _icu4x_LongCurrencyFormatter_create_for_currency_mv1(ffi.Pointer<ffi.Opaque> locale, _SliceUtf8 currencyCode);
+external _ResultOpaqueInt32 _icu4x_LongCurrencyFormatter_create_for_currency_mv1(ffi.Pointer<ffi.Opaque> locale, _SliceUtf8 currencyCode, _ResultInt32Void groupingStrategy);
 
 @_DiplomatFfiUse('icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1')
-@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _SliceUtf8)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1')
+@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _SliceUtf8, _ResultInt32Void)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1')
 // ignore: non_constant_identifier_names
-external _ResultOpaqueInt32 _icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1(ffi.Pointer<ffi.Opaque> provider, ffi.Pointer<ffi.Opaque> locale, _SliceUtf8 currencyCode);
+external _ResultOpaqueInt32 _icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1(ffi.Pointer<ffi.Opaque> provider, ffi.Pointer<ffi.Opaque> locale, _SliceUtf8 currencyCode, _ResultInt32Void groupingStrategy);
 
 @_DiplomatFfiUse('icu4x_LongCurrencyFormatter_format_mv1')
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_LongCurrencyFormatter_format_mv1')

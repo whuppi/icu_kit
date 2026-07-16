@@ -85,7 +85,7 @@ VERSION SCHEME (icu_kit)
 
 First release — full ECMA-402 / Unicode internationalization for Dart and Flutter on all six platforms.
 
-- **API:** one Dart API for number, currency, percent, and unit formatting (as strings or typed `formatToParts` parts); plural rules; dates and times across 17 calendars; time zones; relative time; lists; collation; display names; segmentation; case mapping; normalization; bidi; Unicode properties; exemplar characters; and IDNA. No Flutter dependency.
+- **API:** one Dart API for number, compact-notation, currency, percent, and unit formatting (as strings or typed `formatToParts` parts, with the full ECMA-402 rounding/sign surface: roundingMode, roundingIncrement, trailingZeroDisplay, signDisplay); plural rules; dates and times across 17 calendars; time zones; relative time; lists; collation; display names; segmentation; case mapping; normalization; bidi; Unicode properties; exemplar characters; and IDNA. No Flutter dependency.
 - **Engines:** native via dart:ffi (the build hook compiles icu_capi from the vendored ICU4X source); web via a bundled WebAssembly build of that engine (19 MB, or a 2.1 MB lean variant, 0.6 MB gzipped, via `dart run icu_kit:setup --lean`); or the browser's built-in `Intl` with no ICU4X download (`IcuKit.init(webEngine: WebEngine.browserIntl)`).
 - **Data:** CLDR ships bundled, or loads lazily per-locale (`bundleCldrData: false` + `IcuData.lazy`) for a lean binary. `slice` cuts per-locale data by facade family (68 KB to 5.6 MB). One binary serves bundled and lazy data without a flag — see `example_lean/`.
 - **Vendoring:** ICU4X 2.2.0 as a fork submodule carrying icu_kit's patches on a named branch.

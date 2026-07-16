@@ -167,6 +167,17 @@ void main() {
       );
     });
 
+    test('compact notation abbreviates via Intl (short + long)', () {
+      final short = IcuCompactFormat(locale: 'en-US');
+      expect(short.format(1234567), '1.2M');
+      expect(short.format(123), '123');
+      final long = IcuCompactFormat(
+        locale: 'en-US',
+        display: IcuCompactDisplay.long,
+      );
+      expect(long.format(1234567).toLowerCase(), contains('million'));
+    }, tags: ['experimental_compact']);
+
     test('minSig on a large integer maps to significant digits, '
         'not a negative fraction bound', () {
       // padEnd(magnitudeEnd - minSig + 1) is a POSITIVE position here; the

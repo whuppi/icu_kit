@@ -74,6 +74,9 @@ enum IcuNumberPartType {
   /// The unit name or symbol.
   unit,
 
+  /// The compact-notation abbreviation ("M", "million").
+  compact,
+
   /// Literal text between typed parts (spaces, punctuation).
   literal,
 
@@ -92,6 +95,7 @@ enum IcuNumberPartType {
     'approximatelySign' => approximatelySign,
     'currency' => currency,
     'unit' => unit,
+    'compact' => compact,
     'literal' => literal,
     _ => other,
   };

@@ -430,6 +430,36 @@ icu.Collator collatorDefault(
       : icu.Collator.createWithProvider(p, locale, options);
 }
 
+icu.CompactDecimalFormatter compactDecimalFormatterLong(
+  String localeStr,
+  icu.Locale locale, [
+  icu.DecimalGroupingStrategy? groupingStrategy,
+]) {
+  final p = IcuKit.providerFor(localeStr);
+  return p == null
+      ? icu.CompactDecimalFormatter.long(locale, groupingStrategy)
+      : icu.CompactDecimalFormatter.longWithProvider(
+          p,
+          locale,
+          groupingStrategy,
+        );
+}
+
+icu.CompactDecimalFormatter compactDecimalFormatterShort(
+  String localeStr,
+  icu.Locale locale, [
+  icu.DecimalGroupingStrategy? groupingStrategy,
+]) {
+  final p = IcuKit.providerFor(localeStr);
+  return p == null
+      ? icu.CompactDecimalFormatter.short(locale, groupingStrategy)
+      : icu.CompactDecimalFormatter.shortWithProvider(
+          p,
+          locale,
+          groupingStrategy,
+        );
+}
+
 icu.ComposingNormalizer composingNormalizerNfc() {
   final p = IcuKit.providerFor('und');
   return p == null

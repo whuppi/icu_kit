@@ -177,11 +177,19 @@ String _lowerCamel(String v) => v[0].toLowerCase() + v.substring(1);
 /// (roundingMode / roundingIncrement / signDisplay / trailingZeroDisplay /
 /// max significant digits). Every formatter here builds its number options
 /// through this, so the recorded intents reach Intl uniformly.
-Map<String, JSAny?> _digitJsOptions(JSObject d) {
+///
+/// [pinOwnFraction] — when no fraction intent was recorded, pin min == max
+/// to the decimal string's own fraction digits (exact-digit parity with the
+/// native Decimal). The compact formatter passes false: pinning would force
+/// `maximumFractionDigits: 0` on integer inputs and Intl would render "1M"
+/// where ICU4X's own significand rounding gives "1.2M" — unshaped compact
+/// input must get Intl's compact defaults instead.
+Map<String, JSAny?> _digitJsOptions(JSObject d, {bool pinOwnFraction = true}) {
   final o = _digitOpts(d);
   final magEnd = _recorded(d, 'magnitudeEnd') ?? 0;
   final maxSig = _recorded(d, 'maxSig');
   final recMinFrac = _recorded(d, 'minFrac');
+  final recMaxFrac = _recorded(d, 'maxFrac');
   final roundingMode = _recordedStr(d, 'roundingMode');
   final signDisplay = _recordedStr(d, 'signDisplay');
   final incrementBase = _recorded(d, 'incrementBase');
@@ -213,11 +221,12 @@ Map<String, JSAny?> _digitJsOptions(JSObject d) {
     intlIncrement = inc;
   }
 
+  final fracRecorded = recMinFrac != null || recMaxFrac != null;
   return {
     if (sigMode) ...{
       if (minSig != null) 'minimumSignificantDigits': minSig.toJS,
       if (maxSig != null) 'maximumSignificantDigits': maxSig.toJS,
-    } else ...{
+    } else if (pinOwnFraction || fracRecorded) ...{
       'minimumFractionDigits': o.minFrac.toJS,
       'maximumFractionDigits': o.maxFrac.toJS,
     },
@@ -298,6 +307,38 @@ JSObject _decimalFormatter(JSObject locale, JSObject? strategy) {
   final o = JSObject();
   JSObject options(JSObject decimal) =>
       jsOptions({'useGrouping': grouping, ..._digitJsOptions(decimal)});
+
+  JSString format(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return _fmt(tag, options(decimal), s);
+  }
+
+  JSObject formatToParts(JSObject decimal) {
+    final s = _decimalStr(decimal);
+    return _fmtParts(tag, options(decimal), s);
+  }
+
+  o.setProperty('format'.toJS, format.toJS);
+  o.setProperty('formatToParts'.toJS, formatToParts.toJS);
+  return o;
+}
+
+// ── Compact (EXPERIMENTAL) ───────────────────────────────────────────────
+
+JSObject _compactFormatter(
+  JSObject locale,
+  String display, [
+  JSObject? grouping,
+]) {
+  final tag = localeTag(locale);
+  final useGrouping = _useGrouping(grouping);
+  final o = JSObject();
+  JSObject options(JSObject decimal) => jsOptions({
+    'notation': 'compact'.toJS,
+    'compactDisplay': display.toJS,
+    'useGrouping': useGrouping,
+    ..._digitJsOptions(decimal, pinOwnFraction: false),
+  });
 
   JSString format(JSObject decimal) {
     final s = _decimalStr(decimal);
@@ -598,6 +639,20 @@ void registerNumberFormat(JSObject module) {
     module,
     'DecimalSignDisplay',
     enumClass(const ['Auto', 'Never', 'Always', 'ExceptZero', 'Negative']),
+  );
+  put(
+    module,
+    'CompactDecimalFormatter',
+    staticClass({
+      'createShort':
+          ((JSObject locale, [JSObject? grouping]) =>
+                  _compactFormatter(locale, 'short', grouping))
+              .toJS,
+      'createLong':
+          ((JSObject locale, [JSObject? grouping]) =>
+                  _compactFormatter(locale, 'long', grouping))
+              .toJS,
+    }),
   );
   put(
     module,

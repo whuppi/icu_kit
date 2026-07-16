@@ -806,6 +806,62 @@ icu.Collator collatorDefault(
   );
 }
 
+icu.CompactDecimalFormatter compactDecimalFormatterLong(
+  String localeStr,
+  icu.Locale locale, [
+  icu.DecimalGroupingStrategy? groupingStrategy,
+]) {
+  final cls = IcuKit.module.getProperty<JSObject>(
+    'CompactDecimalFormatter'.toJS,
+  );
+  final p = IcuKit.providerFor(localeStr);
+  if (p == null) {
+    return icu.CompactDecimalFormatter.fromDispatch(
+      cls.callMethod<JSObject>(
+        'createLong'.toJS,
+        locale,
+        groupingStrategy?.toJs(),
+      ),
+    );
+  }
+  return icu.CompactDecimalFormatter.fromDispatch(
+    cls.callMethod<JSObject>(
+      'createLongWithProvider'.toJS,
+      p,
+      locale,
+      groupingStrategy?.toJs(),
+    ),
+  );
+}
+
+icu.CompactDecimalFormatter compactDecimalFormatterShort(
+  String localeStr,
+  icu.Locale locale, [
+  icu.DecimalGroupingStrategy? groupingStrategy,
+]) {
+  final cls = IcuKit.module.getProperty<JSObject>(
+    'CompactDecimalFormatter'.toJS,
+  );
+  final p = IcuKit.providerFor(localeStr);
+  if (p == null) {
+    return icu.CompactDecimalFormatter.fromDispatch(
+      cls.callMethod<JSObject>(
+        'createShort'.toJS,
+        locale,
+        groupingStrategy?.toJs(),
+      ),
+    );
+  }
+  return icu.CompactDecimalFormatter.fromDispatch(
+    cls.callMethod<JSObject>(
+      'createShortWithProvider'.toJS,
+      p,
+      locale,
+      groupingStrategy?.toJs(),
+    ),
+  );
+}
+
 icu.ComposingNormalizer composingNormalizerNfc() {
   final cls = IcuKit.module.getProperty<JSObject>('ComposingNormalizer'.toJS);
   final p = IcuKit.providerFor('und');

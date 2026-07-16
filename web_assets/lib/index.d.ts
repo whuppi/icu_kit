@@ -80,6 +80,8 @@ export { Collator } from "./Collator"
 
 export { CodePointSetBuilder } from "./CodePointSetBuilder"
 
+export { CompactDecimalFormatter } from "./CompactDecimalFormatter"
+
 export { CurrencyFormatter } from "./CurrencyFormatter"
 
 export { LongCurrencyFormatter } from "./LongCurrencyFormatter"

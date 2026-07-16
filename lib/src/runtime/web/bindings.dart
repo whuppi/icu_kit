@@ -28,6 +28,7 @@ export 'bindings/exemplar_characters.dart';
 export 'bindings/display_names.dart';
 export 'bindings/list_format.dart';
 export 'bindings/collator.dart';
+export 'bindings/compact_format.dart';
 export 'bindings/currency_format.dart';
 export 'bindings/percent_format.dart';
 export 'bindings/unit_format.dart';

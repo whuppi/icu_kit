@@ -24,7 +24,7 @@ void main() {
   final names = parseClasses(moduleClassesSnapshot.trim());
   setUpAll(() => IcuKit.init(webEngine: WebEngine.browserIntl));
 
-  test('snapshot has 77 module classes', () => expect(names.length, 77));
+  test('snapshot has 81 module classes', () => expect(names.length, 81));
 
   group('every module class resolves on the built module', () {
     for (final name in names) {

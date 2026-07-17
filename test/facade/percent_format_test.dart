@@ -116,6 +116,25 @@ void main() {
     });
   });
 
+  group('IcuPercentFormat — useGrouping (en-US)', () {
+    test(
+      'useGrouping: false drops the thousands separators',
+      () {
+        expect(
+          IcuPercentFormat(locale: 'en-US').format(1234),
+          contains('1,234'),
+        );
+        final plain = IcuPercentFormat(
+          locale: 'en-US',
+          useGrouping: false,
+        ).format(1234);
+        expect(plain, contains('1234'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_percent'],
+    );
+  });
+
   group('IcuPercentFormat — French (fr) locale', () {
     test('uses comma as decimal separator', () {
       final fmt = IcuPercentFormat(locale: 'fr');

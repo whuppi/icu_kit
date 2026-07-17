@@ -78,6 +78,8 @@ export { Collator } from "./Collator.mjs"
 
 export { CodePointSetBuilder } from "./CodePointSetBuilder.mjs"
 
+export { CompactDecimalFormatter } from "./CompactDecimalFormatter.mjs"
+
 export { CurrencyFormatter } from "./CurrencyFormatter.mjs"
 
 export { LongCurrencyFormatter } from "./LongCurrencyFormatter.mjs"

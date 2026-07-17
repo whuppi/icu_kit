@@ -63,6 +63,62 @@ void main() {
       expect(result, isNotEmpty);
       expect(result, contains('99'));
     });
+
+    test('digit shaping flows through the currency facade', () {
+      // Proves format()'s digit params reach the shared shaper: pad to 2
+      // fraction digits, round half away from zero.
+      expect(
+        fmt.format(5, currencyCode: 'USD', minimumFractionDigits: 2),
+        contains('5.00'),
+      );
+      expect(
+        fmt.format(1.005, currencyCode: 'USD', maximumFractionDigits: 2),
+        contains('1.01'),
+      );
+    });
+  });
+
+  group('IcuCurrencyFormat.symbol — Code width (en-US)', () {
+    late final IcuCurrencyFormat fmt;
+    setUpAll(() {
+      fmt = IcuCurrencyFormat.symbol(
+        locale: 'en-US',
+        width: IcuCurrencyWidth.code,
+      );
+    });
+
+    test('renders the ISO code with a space (¤¤ alpha pattern)', () {
+      final out = fmt.format(1234.56, currencyCode: 'USD');
+      expect(out, contains('USD'));
+      expect(out, contains('1,234.56'));
+      // The alpha-next-to-number pattern puts a (non-break) space between the
+      // code and the number — not "USD1,234.56".
+      expect(out, isNot(contains('USD1')));
+    });
+
+    test('EUR code', () {
+      expect(fmt.format(99.5, currencyCode: 'EUR'), contains('EUR'));
+    });
+  });
+
+  group('IcuCurrencyFormat.symbol — useGrouping (en-US)', () {
+    test(
+      'useGrouping: false drops the thousands separators',
+      () {
+        final grouped = IcuCurrencyFormat.symbol(
+          locale: 'en-US',
+        ).format(1234567, currencyCode: 'USD');
+        expect(grouped, contains('1,234,567'));
+
+        final plain = IcuCurrencyFormat.symbol(
+          locale: 'en-US',
+          useGrouping: false,
+        ).format(1234567, currencyCode: 'USD');
+        expect(plain, contains('1234567'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_currency'],
+    );
   });
 
   group('IcuCurrencyFormat.symbol — Narrow width (en-US)', () {
@@ -118,6 +174,22 @@ void main() {
 
     test('pinnedCurrencyCode reflects construction code', () {
       expect(fmt.pinnedCurrencyCode, 'USD');
+    });
+
+    test('useGrouping: false drops separators on the long form', () {
+      final grouped = IcuCurrencyFormat.long(
+        locale: 'en-US',
+        currencyCode: 'USD',
+      ).format(1234567);
+      expect(grouped, contains('1,234,567'));
+
+      final plain = IcuCurrencyFormat.long(
+        locale: 'en-US',
+        currencyCode: 'USD',
+        useGrouping: false,
+      ).format(1234567);
+      expect(plain, contains('1234567'));
+      expect(plain, isNot(contains('1,234')));
     });
   });
 

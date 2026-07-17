@@ -41,8 +41,8 @@ void main() {
       );
     });
 
-    test('module-class count is 77', () {
-      expect(derived.length, 77);
+    test('module-class count is 81', () {
+      expect(derived.length, 81);
     });
   });
 }

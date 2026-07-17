@@ -2,6 +2,7 @@
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { DecimalGroupingStrategy } from "./DecimalGroupingStrategy"
 import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { pointer, codepoint } from "./diplomat-runtime.d.ts";
@@ -29,9 +30,9 @@ export class LongCurrencyFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/long_formatter/struct.LongCurrencyFormatter.html#method.try_new) for more information.
      */
-    static createForCurrency(locale: Locale, currencyCode: string): LongCurrencyFormatter;
+    static createForCurrency(locale: Locale, currencyCode: string, groupingStrategy: DecimalGroupingStrategy | null): LongCurrencyFormatter;
 
-    static createForCurrencyWithProvider(provider: DataProvider, locale: Locale, currencyCode: string): LongCurrencyFormatter;
+    static createForCurrencyWithProvider(provider: DataProvider, locale: Locale, currencyCode: string, groupingStrategy: DecimalGroupingStrategy | null): LongCurrencyFormatter;
 
     /**
      * Format `value` using the locale-specific plural form

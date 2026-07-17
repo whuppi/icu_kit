@@ -2,6 +2,7 @@
 import { DataError } from "./DataError.mjs"
 import { DataProvider } from "./DataProvider.mjs"
 import { Decimal } from "./Decimal.mjs"
+import { DecimalGroupingStrategy } from "./DecimalGroupingStrategy.mjs"
 import { FormattedNumberParts } from "./FormattedNumberParts.mjs"
 import { Locale } from "./Locale.mjs"
 import wasm from "./diplomat-wasm.mjs";
@@ -54,14 +55,14 @@ export class LongCurrencyFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/long_formatter/struct.LongCurrencyFormatter.html#method.try_new) for more information.
      */
-    static createForCurrency(locale, currencyCode) {
+    static createForCurrency(locale, currencyCode, groupingStrategy) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const currencyCodeSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, currencyCode)));
         const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 5, 4, true);
 
 
-        const result = wasm.icu4x_LongCurrencyFormatter_create_for_currency_mv1(diplomatReceive.buffer, locale.ffiValue, currencyCodeSlice.ptr);
+        const result = wasm.icu4x_LongCurrencyFormatter_create_for_currency_mv1(diplomatReceive.buffer, locale.ffiValue, currencyCodeSlice.ptr, diplomatRuntime.optionToBufferForCalling(wasm, groupingStrategy, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
 
         try {
             if (!diplomatReceive.resultFlag) {
@@ -79,14 +80,14 @@ export class LongCurrencyFormatter {
         }
     }
 
-    static createForCurrencyWithProvider(provider, locale, currencyCode) {
+    static createForCurrencyWithProvider(provider, locale, currencyCode, groupingStrategy) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const currencyCodeSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, currencyCode)));
         const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 5, 4, true);
 
 
-        const result = wasm.icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1(diplomatReceive.buffer, provider.ffiValue, locale.ffiValue, currencyCodeSlice.ptr);
+        const result = wasm.icu4x_LongCurrencyFormatter_create_for_currency_with_provider_mv1(diplomatReceive.buffer, provider.ffiValue, locale.ffiValue, currencyCodeSlice.ptr, diplomatRuntime.optionToBufferForCalling(wasm, groupingStrategy, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
 
         try {
             if (!diplomatReceive.resultFlag) {

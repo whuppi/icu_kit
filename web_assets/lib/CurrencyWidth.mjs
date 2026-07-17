@@ -15,7 +15,8 @@ export class CurrencyWidth {
 
     static #values = new Map([
         ["Short", 0],
-        ["Narrow", 1]
+        ["Narrow", 1],
+        ["Code", 2]
     ]);
 
     static getAllEntries() {
@@ -63,10 +64,16 @@ export class CurrencyWidth {
     static #objectValues = [
         new CurrencyWidth(diplomatRuntime.internalConstructor, diplomatRuntime.internalConstructor, 0),
         new CurrencyWidth(diplomatRuntime.internalConstructor, diplomatRuntime.internalConstructor, 1),
+        new CurrencyWidth(diplomatRuntime.internalConstructor, diplomatRuntime.internalConstructor, 2),
     ];
 
     static Short = CurrencyWidth.#objectValues[0];
     static Narrow = CurrencyWidth.#objectValues[1];
+    /**
+     * ISO 4217 code display (e.g. "USD 1.00"). icu_kit fork addition for
+     * ECMA-402 `currencyDisplay: "code"`.
+     */
+    static Code = CurrencyWidth.#objectValues[2];
 
 
     constructor(value) {

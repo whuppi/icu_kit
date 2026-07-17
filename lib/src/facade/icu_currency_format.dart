@@ -4,7 +4,15 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_format.dart'
+    show
+        IcuGroupingStrategy,
+        IcuRoundingMode,
+        IcuSignDisplay,
+        IcuTrailingZeroDisplay,
+        resolveGroupingStrategy,
+        shapeDecimalDigits,
+        shapedDecimalFfi;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — currency-aware decimal formatting.
@@ -50,16 +58,23 @@ final class IcuCurrencyFormat {
   factory IcuCurrencyFormat.symbol({
     required String locale,
     IcuCurrencyWidth width = IcuCurrencyWidth.short,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     final loc = IcuLocale.parse(locale);
     try {
       final formatter = dispatch.currencyFormatterWithWidth(
         locale,
         loc.ffi,
-        switch (width) {
+        width: switch (width) {
           IcuCurrencyWidth.short => icu.CurrencyWidth.short,
           IcuCurrencyWidth.narrow => icu.CurrencyWidth.narrow,
+          IcuCurrencyWidth.code => icu.CurrencyWidth.code,
         },
+        groupingStrategy: resolveGroupingStrategy(
+          useGrouping,
+          groupingStrategy,
+        ),
       );
       return IcuCurrencyFormat._symbol(formatter);
     } catch (e) {
@@ -81,6 +96,8 @@ final class IcuCurrencyFormat {
   factory IcuCurrencyFormat.long({
     required String locale,
     required String currencyCode,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     if (currencyCode.length != 3) {
       throw IcuDataError(
@@ -95,6 +112,7 @@ final class IcuCurrencyFormat {
         locale,
         loc.ffi,
         currencyCode,
+        resolveGroupingStrategy(useGrouping, groupingStrategy),
       );
       return IcuCurrencyFormat._long(formatter, currencyCode);
     } catch (e) {
@@ -116,10 +134,34 @@ final class IcuCurrencyFormat {
   ///
   /// For symbol-style instances, [currencyCode] is required (3-letter ISO
   /// 4217). For long-form instances, [currencyCode] is ignored — the
-  /// formatter is pinned to the currency code passed at construction.
+  /// formatter is pinned to the currency code passed at construction. The
+  /// digit controls apply ECMA-402 shaping (see [shapeDecimalDigits]).
   @experimental
-  String format(num value, {String? currencyCode}) {
-    final decimal = toDecimalFfi(value);
+  String format(
+    num value, {
+    String? currencyCode,
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
+  }) {
+    final decimal = shapedDecimalFfi(
+      value,
+      minimumIntegerDigits: minimumIntegerDigits,
+      minimumFractionDigits: minimumFractionDigits,
+      maximumFractionDigits: maximumFractionDigits,
+      minimumSignificantDigits: minimumSignificantDigits,
+      maximumSignificantDigits: maximumSignificantDigits,
+      roundingMode: roundingMode,
+      roundingIncrement: roundingIncrement,
+      trailingZeroDisplay: trailingZeroDisplay,
+      signDisplay: signDisplay,
+    );
     final symbol = _symbol;
     if (symbol != null) {
       if (currencyCode == null || currencyCode.length != 3) {
@@ -139,8 +181,31 @@ final class IcuCurrencyFormat {
   /// mirroring ECMA-402 `formatToParts`. Same [currencyCode] contract as
   /// [format]. Concatenating every part's `value` reproduces [format].
   @experimental
-  List<IcuNumberPart> formatToParts(num value, {String? currencyCode}) {
-    final decimal = toDecimalFfi(value);
+  List<IcuNumberPart> formatToParts(
+    num value, {
+    String? currencyCode,
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
+  }) {
+    final decimal = shapedDecimalFfi(
+      value,
+      minimumIntegerDigits: minimumIntegerDigits,
+      minimumFractionDigits: minimumFractionDigits,
+      maximumFractionDigits: maximumFractionDigits,
+      minimumSignificantDigits: minimumSignificantDigits,
+      maximumSignificantDigits: maximumSignificantDigits,
+      roundingMode: roundingMode,
+      roundingIncrement: roundingIncrement,
+      trailingZeroDisplay: trailingZeroDisplay,
+      signDisplay: signDisplay,
+    );
     final symbol = _symbol;
     if (symbol != null) {
       if (currencyCode == null || currencyCode.length != 3) {
@@ -173,4 +238,9 @@ enum IcuCurrencyWidth {
   /// Narrow form — e.g. "$1" everywhere (ambiguous on purpose, for tight
   /// columns where the locale-specific differentiation is undesirable).
   narrow,
+
+  /// ISO 4217 code form — e.g. "USD 1.00" in en-US. The 3-letter code with
+  /// the alpha-next-to-number spacing CLDR uses for alphabetic displays.
+  /// Maps to ECMA-402 `currencyDisplay: "code"`.
+  code,
 }

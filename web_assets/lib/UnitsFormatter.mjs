@@ -2,6 +2,7 @@
 import { DataError } from "./DataError.mjs"
 import { DataProvider } from "./DataProvider.mjs"
 import { Decimal } from "./Decimal.mjs"
+import { DecimalGroupingStrategy } from "./DecimalGroupingStrategy.mjs"
 import { FormattedNumberParts } from "./FormattedNumberParts.mjs"
 import { Locale } from "./Locale.mjs"
 import { UnitsWidth } from "./UnitsWidth.mjs"
@@ -58,14 +59,14 @@ export class UnitsFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/units/formatter/struct.UnitsFormatter.html#method.try_new) for more information.
      */
-    static createForUnit(locale, unitIdentifier, width) {
+    static createForUnit(locale, unitIdentifier, width, groupingStrategy) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const unitIdentifierSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, unitIdentifier)));
         const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 5, 4, true);
 
 
-        const result = wasm.icu4x_UnitsFormatter_create_for_unit_mv1(diplomatReceive.buffer, locale.ffiValue, unitIdentifierSlice.ptr, diplomatRuntime.optionToBufferForCalling(wasm, width, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
+        const result = wasm.icu4x_UnitsFormatter_create_for_unit_mv1(diplomatReceive.buffer, locale.ffiValue, unitIdentifierSlice.ptr, diplomatRuntime.optionToBufferForCalling(wasm, width, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]), diplomatRuntime.optionToBufferForCalling(wasm, groupingStrategy, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
 
         try {
             if (!diplomatReceive.resultFlag) {
@@ -83,14 +84,14 @@ export class UnitsFormatter {
         }
     }
 
-    static createForUnitWithProvider(provider, locale, unitIdentifier, width) {
+    static createForUnitWithProvider(provider, locale, unitIdentifier, width, groupingStrategy) {
         let functionCleanupArena = new diplomatRuntime.CleanupArena();
 
         const unitIdentifierSlice = functionCleanupArena.alloc(diplomatRuntime.DiplomatBuf.sliceWrapper(wasm, diplomatRuntime.DiplomatBuf.str8(wasm, unitIdentifier)));
         const diplomatReceive = new diplomatRuntime.DiplomatReceiveBuf(wasm, 5, 4, true);
 
 
-        const result = wasm.icu4x_UnitsFormatter_create_for_unit_with_provider_mv1(diplomatReceive.buffer, provider.ffiValue, locale.ffiValue, unitIdentifierSlice.ptr, diplomatRuntime.optionToBufferForCalling(wasm, width, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
+        const result = wasm.icu4x_UnitsFormatter_create_for_unit_with_provider_mv1(diplomatReceive.buffer, provider.ffiValue, locale.ffiValue, unitIdentifierSlice.ptr, diplomatRuntime.optionToBufferForCalling(wasm, width, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]), diplomatRuntime.optionToBufferForCalling(wasm, groupingStrategy, 4, 4, functionCleanupArena, (arrayBuffer, offset, jsValue) => [diplomatRuntime.writeToArrayBuffer(arrayBuffer, offset + 0, jsValue.ffiValue, Int32Array)]));
 
         try {
             if (!diplomatReceive.resultFlag) {

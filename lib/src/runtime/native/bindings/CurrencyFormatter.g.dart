@@ -36,8 +36,8 @@ final class CurrencyFormatter implements ffi.Finalizable {
   /// See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/currency/formatter/struct.CurrencyFormatter.html#method.try_new) for more information.
   ///
   /// Throws [DataError] on failure.
-  factory CurrencyFormatter.withWidth(Locale locale, [CurrencyWidth? width]) {
-    final result = _icu4x_CurrencyFormatter_create_with_width_mv1(locale._ffi, width != null ? _ResultInt32Void.ok(width.index) : _ResultInt32Void.err());
+  factory CurrencyFormatter.withWidth(Locale locale, {CurrencyWidth? width, DecimalGroupingStrategy? groupingStrategy}) {
+    final result = _icu4x_CurrencyFormatter_create_with_width_mv1(locale._ffi, width != null ? _ResultInt32Void.ok(width.index) : _ResultInt32Void.err(), groupingStrategy != null ? _ResultInt32Void.ok(groupingStrategy.index) : _ResultInt32Void.err());
     if (!result.isOk) {
       throw DataError.values[result.union.err];
     }
@@ -47,8 +47,8 @@ final class CurrencyFormatter implements ffi.Finalizable {
   ///
   ///
   /// Throws [DataError] on failure.
-  factory CurrencyFormatter.withWidthWithProvider(DataProvider provider, Locale locale, [CurrencyWidth? width]) {
-    final result = _icu4x_CurrencyFormatter_create_with_width_with_provider_mv1(provider._ffi, locale._ffi, width != null ? _ResultInt32Void.ok(width.index) : _ResultInt32Void.err());
+  factory CurrencyFormatter.withWidthWithProvider(DataProvider provider, Locale locale, {CurrencyWidth? width, DecimalGroupingStrategy? groupingStrategy}) {
+    final result = _icu4x_CurrencyFormatter_create_with_width_with_provider_mv1(provider._ffi, locale._ffi, width != null ? _ResultInt32Void.ok(width.index) : _ResultInt32Void.err(), groupingStrategy != null ? _ResultInt32Void.ok(groupingStrategy.index) : _ResultInt32Void.err());
     if (!result.isOk) {
       throw DataError.values[result.union.err];
     }
@@ -86,14 +86,14 @@ final class CurrencyFormatter implements ffi.Finalizable {
 external void _icu4x_CurrencyFormatter_destroy_mv1(ffi.Pointer<ffi.Void> self);
 
 @_DiplomatFfiUse('icu4x_CurrencyFormatter_create_with_width_mv1')
-@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, _ResultInt32Void)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_create_with_width_mv1')
+@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, _ResultInt32Void, _ResultInt32Void)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_create_with_width_mv1')
 // ignore: non_constant_identifier_names
-external _ResultOpaqueInt32 _icu4x_CurrencyFormatter_create_with_width_mv1(ffi.Pointer<ffi.Opaque> locale, _ResultInt32Void width);
+external _ResultOpaqueInt32 _icu4x_CurrencyFormatter_create_with_width_mv1(ffi.Pointer<ffi.Opaque> locale, _ResultInt32Void width, _ResultInt32Void groupingStrategy);
 
 @_DiplomatFfiUse('icu4x_CurrencyFormatter_create_with_width_with_provider_mv1')
-@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _ResultInt32Void)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_create_with_width_with_provider_mv1')
+@ffi.Native<_ResultOpaqueInt32 Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _ResultInt32Void, _ResultInt32Void)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_create_with_width_with_provider_mv1')
 // ignore: non_constant_identifier_names
-external _ResultOpaqueInt32 _icu4x_CurrencyFormatter_create_with_width_with_provider_mv1(ffi.Pointer<ffi.Opaque> provider, ffi.Pointer<ffi.Opaque> locale, _ResultInt32Void width);
+external _ResultOpaqueInt32 _icu4x_CurrencyFormatter_create_with_width_with_provider_mv1(ffi.Pointer<ffi.Opaque> provider, ffi.Pointer<ffi.Opaque> locale, _ResultInt32Void width, _ResultInt32Void groupingStrategy);
 
 @_DiplomatFfiUse('icu4x_CurrencyFormatter_format_mv1')
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Opaque>, ffi.Pointer<ffi.Opaque>, _SliceUtf8, ffi.Pointer<ffi.Opaque>)>(isLeaf: true, symbol: 'icu4x_CurrencyFormatter_format_mv1')

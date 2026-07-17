@@ -4,7 +4,15 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_format.dart'
+    show
+        IcuGroupingStrategy,
+        IcuRoundingMode,
+        IcuSignDisplay,
+        IcuTrailingZeroDisplay,
+        resolveGroupingStrategy,
+        shapeDecimalDigits,
+        shapedDecimalFfi;
 import 'icu_number_parts.dart';
 
 /// EXPERIMENTAL — locale-aware percent formatting.
@@ -48,17 +56,23 @@ final class IcuPercentFormat {
   factory IcuPercentFormat({
     required String locale,
     IcuPercentDisplay display = IcuPercentDisplay.standard,
+    bool? useGrouping,
+    IcuGroupingStrategy? groupingStrategy,
   }) {
     final loc = IcuLocale.parse(locale);
     try {
       final formatter = dispatch.percentFormatterWithDisplay(
         locale,
         loc.ffi,
-        switch (display) {
+        display: switch (display) {
           IcuPercentDisplay.standard => icu.PercentDisplay.standard,
           IcuPercentDisplay.approximate => icu.PercentDisplay.approximate,
           IcuPercentDisplay.explicitSign => icu.PercentDisplay.explicitSign,
         },
+        groupingStrategy: resolveGroupingStrategy(
+          useGrouping,
+          groupingStrategy,
+        ),
       );
       return IcuPercentFormat._(formatter);
     } catch (e) {
@@ -75,16 +89,66 @@ final class IcuPercentFormat {
   /// EXPERIMENTAL — format [value] as a percent.
   ///
   /// Input is interpreted as ALREADY-scaled. For ECMA-402 semantics
-  /// (`0.12` → `"12%"`), multiply by 100 in Dart first.
+  /// (`0.12` → `"12%"`), multiply by 100 in Dart first. The digit controls
+  /// apply ECMA-402 shaping (see [shapeDecimalDigits]).
   @experimental
-  String format(num value) => _ffi.format(toDecimalFfi(value));
+  String format(
+    num value, {
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
+  }) => _ffi.format(
+    shapedDecimalFfi(
+      value,
+      minimumIntegerDigits: minimumIntegerDigits,
+      minimumFractionDigits: minimumFractionDigits,
+      maximumFractionDigits: maximumFractionDigits,
+      minimumSignificantDigits: minimumSignificantDigits,
+      maximumSignificantDigits: maximumSignificantDigits,
+      roundingMode: roundingMode,
+      roundingIncrement: roundingIncrement,
+      trailingZeroDisplay: trailingZeroDisplay,
+      signDisplay: signDisplay,
+    ),
+  );
 
   /// EXPERIMENTAL — format [value] into typed parts (integer / group /
   /// decimal / fraction / percentSign / sign), mirroring ECMA-402
   /// `formatToParts`. Concatenating every part's `value` reproduces [format].
   @experimental
-  List<IcuNumberPart> formatToParts(num value) =>
-      partsToList(_ffi.formatToParts(toDecimalFfi(value)));
+  List<IcuNumberPart> formatToParts(
+    num value, {
+    int? minimumIntegerDigits,
+    int? minimumFractionDigits,
+    int? maximumFractionDigits,
+    int? minimumSignificantDigits,
+    int? maximumSignificantDigits,
+    IcuRoundingMode? roundingMode,
+    int? roundingIncrement,
+    IcuTrailingZeroDisplay? trailingZeroDisplay,
+    IcuSignDisplay? signDisplay,
+  }) => partsToList(
+    _ffi.formatToParts(
+      shapedDecimalFfi(
+        value,
+        minimumIntegerDigits: minimumIntegerDigits,
+        minimumFractionDigits: minimumFractionDigits,
+        maximumFractionDigits: maximumFractionDigits,
+        minimumSignificantDigits: minimumSignificantDigits,
+        maximumSignificantDigits: maximumSignificantDigits,
+        roundingMode: roundingMode,
+        roundingIncrement: roundingIncrement,
+        trailingZeroDisplay: trailingZeroDisplay,
+        signDisplay: signDisplay,
+      ),
+    ),
+  );
 }
 
 /// EXPERIMENTAL — display style for [IcuPercentFormat].

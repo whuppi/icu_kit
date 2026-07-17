@@ -127,6 +127,28 @@ void main() {
     });
   });
 
+  group('IcuUnitFormat — useGrouping (en-US)', () {
+    test(
+      'useGrouping: false drops the thousands separators',
+      () {
+        final grouped = IcuUnitFormat(
+          locale: 'en-US',
+          unit: 'meter',
+        ).format(1234567);
+        expect(grouped, contains('1,234,567'));
+
+        final plain = IcuUnitFormat(
+          locale: 'en-US',
+          unit: 'meter',
+          useGrouping: false,
+        ).format(1234567);
+        expect(plain, contains('1234567'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_unit'],
+    );
+  });
+
   group('IcuUnitFormat — Compound units (kilometer-per-hour)', () {
     test('en-US short form renders speed', () {
       final fmt = IcuUnitFormat(locale: 'en-US', unit: 'kilometer-per-hour');

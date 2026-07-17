@@ -49,6 +49,38 @@ void main() {
     });
   });
 
+  group('IcuPluralRules — operand v (visible fraction digits)', () {
+    late final IcuPluralRules en;
+    setUpAll(() {
+      en = IcuPluralRules.cardinal('en');
+    });
+
+    // In English, a number WITH visible fraction digits is always `other`,
+    // even when its numeric value is 1. category(num) can't see this — it
+    // stringifies and loses the trailing zero — so categoryOfDecimal is the
+    // operand-correct entry point.
+    test("'1' → one", () {
+      expect(en.categoryOfDecimal('1'), IcuPluralCategory.one);
+    });
+    test("'1.0' → other (v=1)", () {
+      expect(en.categoryOfDecimal('1.0'), IcuPluralCategory.other);
+    });
+    test("'1.00' → other (v=2)", () {
+      expect(en.categoryOfDecimal('1.00'), IcuPluralCategory.other);
+    });
+    test('category(1) and category(1.0) collapse (the gap E1 closes)', () {
+      // category() stringifies: 1.0.toString() == '1.0' in Dart, but the
+      // numeric 1 and 1.0 both round-trip through the same operand path.
+      // categoryOfDecimal is what lets a caller distinguish them.
+      expect(en.category(1), IcuPluralCategory.one);
+      expect(en.categoryOfDecimal('1'), en.category(1));
+    });
+    test('negative decimals classify by absolute value', () {
+      expect(en.categoryOfDecimal('-1'), IcuPluralCategory.one);
+      expect(en.categoryOfDecimal('-1.0'), IcuPluralCategory.other);
+    });
+  });
+
   group('IcuPluralRules — English ordinals (CLDR)', () {
     late final IcuPluralRules en;
     setUpAll(() {

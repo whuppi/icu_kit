@@ -2,6 +2,7 @@
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { DecimalGroupingStrategy } from "./DecimalGroupingStrategy"
 import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { PercentDisplay } from "./PercentDisplay"
@@ -29,9 +30,9 @@ export class PercentFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/percent/formatter/struct.PercentFormatter.html#method.try_new) for more information.
      */
-    static createWithDisplay(locale: Locale, display: PercentDisplay | null): PercentFormatter;
+    static createWithDisplay(locale: Locale, display: PercentDisplay | null, groupingStrategy: DecimalGroupingStrategy | null): PercentFormatter;
 
-    static createWithDisplayWithProvider(provider: DataProvider, locale: Locale, display: PercentDisplay | null): PercentFormatter;
+    static createWithDisplayWithProvider(provider: DataProvider, locale: Locale, display: PercentDisplay | null, groupingStrategy: DecimalGroupingStrategy | null): PercentFormatter;
 
     /**
      * Format `value` as a percent. The decimal is interpreted as already

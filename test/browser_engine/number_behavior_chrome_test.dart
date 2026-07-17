@@ -28,6 +28,14 @@ void main() {
         '1234.5',
       );
     });
+    test('min2 skips 4-digit groups, groups 5-digit (Intl v3 option)', () {
+      final fmt = IcuNumberFormat.decimal(
+        locale: 'en-US',
+        groupingStrategy: IcuGroupingStrategy.min2,
+      );
+      expect(fmt.format(1234), '1234');
+      expect(fmt.format(12345), '12,345');
+    });
     test('integer formats without a decimal point', () {
       expect(
         IcuNumberFormat.decimal(locale: 'en-US').format(1000000),
@@ -60,6 +68,22 @@ void main() {
       expect(out, contains('234'));
     }, tags: ['experimental_currency']);
 
+    test(
+      'currency Code width renders the ISO code, not the symbol',
+      () {
+        // Exercises the CurrencyWidth.code round-trip through the browser Intl
+        // shim: Dart enum → JS 'Code' sentinel → currencyDisplay: 'code'.
+        final out = IcuCurrencyFormat.symbol(
+          locale: 'en-US',
+          width: IcuCurrencyWidth.code,
+        ).format(1234.56, currencyCode: 'USD');
+        expect(out, contains('USD'));
+        expect(out, contains('234'));
+        expect(out, isNot(contains(r'$')));
+      },
+      tags: ['experimental_currency'],
+    );
+
     test('percent formats value as-is (no ×100)', () {
       // icu4x: 42 → "42%", NOT "4200%".
       final out = IcuPercentFormat(locale: 'en-US').format(42);
@@ -67,6 +91,153 @@ void main() {
       expect(out, contains('%'));
       expect(out, isNot(contains('4200')));
     }, tags: ['experimental_percent']);
+
+    test(
+      'currency useGrouping: false drops separators (browser Intl)',
+      () {
+        final plain = IcuCurrencyFormat.symbol(
+          locale: 'en-US',
+          useGrouping: false,
+        ).format(1234567, currencyCode: 'USD');
+        expect(plain, contains('1234567'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_currency'],
+    );
+
+    test(
+      'percent useGrouping: false drops separators (browser Intl)',
+      () {
+        final plain = IcuPercentFormat(
+          locale: 'en-US',
+          useGrouping: false,
+        ).format(1234);
+        expect(plain, contains('1234'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_percent'],
+    );
+
+    test(
+      'unit useGrouping: false drops separators (browser Intl)',
+      () {
+        final plain = IcuUnitFormat(
+          locale: 'en-US',
+          unit: 'meter',
+          useGrouping: false,
+        ).format(1234567);
+        expect(plain, contains('1234567'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_unit'],
+    );
+
+    test('roundingMode: nine ECMA-402 modes reach Intl', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      String r(num v, IcuRoundingMode mode) =>
+          fmt.format(v, maximumFractionDigits: 0, roundingMode: mode);
+      expect(r(1.1, IcuRoundingMode.ceil), '2');
+      expect(r(1.9, IcuRoundingMode.floor), '1');
+      expect(r(2.5, IcuRoundingMode.halfEven), '2');
+      expect(r(-1.9, IcuRoundingMode.trunc), '-1');
+    });
+
+    test('signDisplay reaches Intl (always / never / exceptZero)', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(fmt.format(5, signDisplay: IcuSignDisplay.always), '+5');
+      expect(fmt.format(-5, signDisplay: IcuSignDisplay.never), '5');
+      expect(fmt.format(0, signDisplay: IcuSignDisplay.exceptZero), '0');
+    });
+
+    test('trailingZeroDisplay: stripIfInteger reaches Intl', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(
+        fmt.format(
+          5,
+          minimumFractionDigits: 2,
+          trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger,
+        ),
+        '5',
+      );
+      expect(
+        fmt.format(
+          5.5,
+          minimumFractionDigits: 2,
+          trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger,
+        ),
+        '5.50',
+      );
+    });
+
+    test('roundingIncrement reaches Intl (25 @ 2fd, 50 @ 2fd, 5 @ 0fd)', () {
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(
+        fmt.format(
+          1.13,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+          roundingIncrement: 25,
+        ),
+        '1.25',
+      );
+      expect(
+        fmt.format(
+          1.13,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+          roundingIncrement: 50,
+        ),
+        '1.00',
+      );
+      expect(
+        fmt.format(12, maximumFractionDigits: 0, roundingIncrement: 5),
+        '10',
+      );
+      // Regression: fractional input at a 0-digit increment must not pin
+      // fraction digits from the input string ("0.0" where native says "0").
+      expect(
+        fmt.format(1.6, maximumFractionDigits: 0, roundingIncrement: 5),
+        '0',
+      );
+    });
+
+    test(
+      'compact notation abbreviates via Intl (short + long)',
+      () {
+        final short = IcuCompactFormat(locale: 'en-US');
+        expect(short.format(1234567), '1.2M');
+        expect(short.format(123), '123');
+        final long = IcuCompactFormat(
+          locale: 'en-US',
+          display: IcuCompactDisplay.long,
+        );
+        expect(long.format(1234567).toLowerCase(), contains('million'));
+      },
+      tags: ['experimental_compact'],
+    );
+
+    test('minSig on a large integer maps to significant digits, '
+        'not a negative fraction bound', () {
+      // padEnd(magnitudeEnd - minSig + 1) is a POSITIVE position here; the
+      // shim must express it as minimumSignificantDigits — a negative
+      // minimumFractionDigits would be an Intl RangeError.
+      final fmt = IcuNumberFormat.decimal(locale: 'en-US');
+      expect(fmt.format(1234, minimumSignificantDigits: 2), '1,234');
+    });
+
+    test(
+      'long currency useGrouping: false drops separators (browser Intl)',
+      () {
+        final plain = IcuCurrencyFormat.long(
+          locale: 'en-US',
+          currencyCode: 'USD',
+          useGrouping: false,
+        ).format(1234567);
+        expect(plain, contains('1234567'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_currency'],
+    );
 
     test(
       'percent affix survives a prefix-% locale (Turkish)',

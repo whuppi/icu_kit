@@ -23,6 +23,7 @@ CollatorAlternateHandling
 CollatorCaseLevel
 CollatorMaxVariable
 CollatorStrength
+CompactDecimalFormatter
 ComposingNormalizer
 CurrencyFormatter
 CurrencyWidth
@@ -35,6 +36,9 @@ DateTimeLength
 Decimal
 DecimalFormatter
 DecimalGroupingStrategy
+DecimalRoundingIncrement
+DecimalSignDisplay
+DecimalSignedRoundingMode
 DecomposingNormalizer
 DisplayNamesFallback
 DisplayNamesStyle

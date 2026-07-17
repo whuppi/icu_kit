@@ -22,3 +22,6 @@ tags:
     # Unit formatting backed by icu_experimental in ICU4X 2.2.
     # Same migration trigger as currency (PR #7789).
     # See lib/src/facade/icu_unit_format.dart.
+  experimental_compact:
+    # Compact notation backed by icu_decimal `unstable` (CompactDecimalFormatter).
+    # See lib/src/facade/icu_compact_format.dart.

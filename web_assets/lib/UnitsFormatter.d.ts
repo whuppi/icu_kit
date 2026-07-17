@@ -2,6 +2,7 @@
 import type { DataError } from "./DataError"
 import type { DataProvider } from "./DataProvider"
 import type { Decimal } from "./Decimal"
+import type { DecimalGroupingStrategy } from "./DecimalGroupingStrategy"
 import type { FormattedNumberParts } from "./FormattedNumberParts"
 import type { Locale } from "./Locale"
 import type { UnitsWidth } from "./UnitsWidth"
@@ -33,9 +34,9 @@ export class UnitsFormatter {
      *
      * See the [Rust documentation for `try_new`](https://docs.rs/icu/2.2.0/icu/experimental/dimension/units/formatter/struct.UnitsFormatter.html#method.try_new) for more information.
      */
-    static createForUnit(locale: Locale, unitIdentifier: string, width: UnitsWidth | null): UnitsFormatter;
+    static createForUnit(locale: Locale, unitIdentifier: string, width: UnitsWidth | null, groupingStrategy: DecimalGroupingStrategy | null): UnitsFormatter;
 
-    static createForUnitWithProvider(provider: DataProvider, locale: Locale, unitIdentifier: string, width: UnitsWidth | null): UnitsFormatter;
+    static createForUnitWithProvider(provider: DataProvider, locale: Locale, unitIdentifier: string, width: UnitsWidth | null, groupingStrategy: DecimalGroupingStrategy | null): UnitsFormatter;
 
     /**
      * Format `value` with the unit. Returns the locale-correct plural

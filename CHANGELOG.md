@@ -81,6 +81,17 @@ VERSION SCHEME (icu_kit)
 
 <!-- Add new versions below, newest first. -->
 
+## 0.2.0
+
+The number pipeline gains the full ECMA-402 formatting surface.
+
+- Engine updated — web: re-run `flutter pub run icu_kit:setup --force web` (native updates itself)
+- Added the complete ECMA-402 digit surface to `format()` — minimum/maximum fraction and integer digits, plus minimum/maximum significant digits — on all three engines.
+- Added `IcuCompactFormat` for compact notation (1.2M) on all three engines.
+- Added `signDisplay`, `roundingMode`, `roundingIncrement`, and `trailingZeroDisplay` across number, currency, percent, and unit formatting.
+- Added `currencyDisplay: "code"` and explicit `useGrouping` control to the currency, percent, and unit facades.
+- Added `IcuPluralRules.categoryOfDecimal` for operand-exact plural selection (trailing-zero aware).
+
 ## 0.1.0
 
 First release — full ECMA-402 / Unicode internationalization for Dart and Flutter on all six platforms.

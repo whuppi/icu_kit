@@ -11,11 +11,12 @@ ECMA-402 / Unicode capabilities exposed via the public facade.
 | Domain | Facade(s) | Coverage | Tier |
 |---|---|---|:---:|
 | **Locale** | `IcuLocale`, `IcuLocaleCanonicalizer`, `IcuLocaleExpander`, `IcuLocaleDirectionality`, `IcuLocaleFallbacker` | Parse + canonicalize + maximize/minimize + RTL/LTR + CLDR fallback chain | A |
-| **Plural rules** | `IcuPluralRules` | Cardinal + ordinal, every CLDR locale | A |
-| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat, incl. `formatToParts` (typed part output) | A |
-| **Currency** | `IcuCurrencyFormat` | Symbol form + long form (plural-correct "1 US dollar" / "2 US dollars"); `formatToParts` (symbol/name → `currency` part) | C ⚠ |
-| **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign; `formatToParts` (→ `percentSign`, typed signs) | C ⚠ |
-| **Units** | `IcuUnitFormat` | CLDR unit identifier (e.g. `"kilometer-per-hour"`); long / short / narrow widths; `formatToParts` (unit name → one `unit` part) | C ⚠ |
+| **Plural rules** | `IcuPluralRules` | Cardinal + ordinal, every CLDR locale; `categoryOfDecimal` for operand-exact selection (trailing-zero aware, e.g. `1.0` ≠ `1`) | A |
+| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat, incl. `formatToParts` (typed part output). The full digit + rounding surface — minimum/maximum fraction and integer digits, minimum/maximum significant digits, `roundingMode` (all nine), `roundingIncrement`, `trailingZeroDisplay`, `signDisplay` — lives on the shared digit shaper (a `format()` option bag), so every number facade below inherits it | A |
+| **Compact numbers** | `IcuCompactFormat` | ECMA-402 `notation: "compact"` — short ("1.2M") / long ("1.2 million"), CLDR significand rounding, grouping, `formatToParts` (abbreviation → one `compact` part) | C ⚠ |
+| **Currency** | `IcuCurrencyFormat` | Symbol / narrow / ISO-code widths (`currencyDisplay: "code"` with CLDR alpha-next-to-number spacing) + long form (plural-correct "1 US dollar" / "2 US dollars"); grouping; `formatToParts` (symbol/name → `currency` part) | C ⚠ |
+| **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign; grouping; `formatToParts` (→ `percentSign`, typed signs) | C ⚠ |
+| **Units** | `IcuUnitFormat` | CLDR unit identifier (e.g. `"kilometer-per-hour"`); long / short / narrow widths; grouping; `formatToParts` (unit name → one `unit` part) | C ⚠ |
 | **Date** | `IcuDateFormat` | 10 field-set constructors (ymd, md, ymde, mde, de, y, m, d, e, ym), length / alignment / year-style | A |
 | **Time** | `IcuTimeFormat` | length / time-precision / alignment | A |
 | **Date+Time** | `IcuDateTimeFormat` | 7 field sets (dt, mdt, ymdt, det, mdet, ymdet, et) | A |
@@ -151,7 +152,7 @@ Facades without per-row corpus (relative-time, currency, percent, unit, display 
 | `vendor/icu4x` (submodule) | tag `icu@2.2.0` on branch `icu_kit/2.2.0-patches` | Bumped on each minor ICU4X release. Each bump: reapply IDL patches, regen bindings, regen dispatch. |
 | Diplomat (built from submodule's `tools/make/diplomat-gen`) | matches the ICU4X tag | Auto-bumped with the submodule. |
 | Pinned Rust nightly | `build.json` `nightlyToolchain` | Matches upstream's `vendor/icu4x/ffi/capi/build.sh`. Bumped when upstream bumps. |
-| Local IDL patches | 9 marker-wrapped files under `vendor/icu4x/ffi/capi/` (`grep -rl "icu_kit patch"` is the inventory) | See ARCHITECTURE.md "Local IDL patches" for the file list + removal triggers. |
+| Local IDL patches | Marker-wrapped files under `vendor/icu4x/ffi/capi/` AND `vendor/icu4x/components/` — `grep -rl "icu_kit patch" ffi/capi/ components/` inside the vendor is the authoritative inventory (12 + 11 files as of the ECMA-402 knob patches) | See ARCHITECTURE.md "Local IDL patches" for the file list + removal triggers. |
 
 Refresh procedure + the add-a-new-facade recipe: [`UPDATING.md`](UPDATING.md).
 

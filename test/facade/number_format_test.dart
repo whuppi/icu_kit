@@ -381,5 +381,14 @@ void main() {
         throwsA(isA<IcuDataError>()),
       );
     });
+
+    test('a zero increment throws instead of hanging the isolate', () {
+      // 0 would spin the base-10 decomposition loop forever; the guard must
+      // reject it up front.
+      expect(
+        () => fmt.format(5, maximumFractionDigits: 0, roundingIncrement: 0),
+        throwsA(isA<IcuDataError>()),
+      );
+    });
   });
 }

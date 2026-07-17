@@ -11,7 +11,6 @@ import 'icu_number_format.dart'
         IcuSignDisplay,
         IcuTrailingZeroDisplay,
         resolveGroupingStrategy,
-        shapeDecimalDigits,
         shapedDecimalFfi;
 import 'icu_number_parts.dart';
 
@@ -84,7 +83,7 @@ final class IcuCompactFormat {
   ///
   /// CLDR compact rounding applies to the significand internally
   /// (`1234567` → `"1.2M"`). The digit controls shape the input value
-  /// before compacting (see [shapeDecimalDigits]).
+  /// before compacting (see [shapedDecimalFfi]).
   @experimental
   String format(
     num value, {

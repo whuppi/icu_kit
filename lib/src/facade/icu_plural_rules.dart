@@ -100,10 +100,14 @@ final class IcuPluralRules {
   /// Accepts integers and doubles. Negative numbers are categorized by their
   /// absolute value (per CLDR convention).
   ///
-  /// Note: `value.toString()` drops trailing zeros, so `1.0` classifies the
-  /// same as `1`. When the caller has a display-shaped digit string whose
-  /// visible fraction digits matter (CLDR operand `v`), use
-  /// [categoryOfDecimal] instead.
+  /// Note: this classifies `value.toString()`, which reflects the value's own
+  /// type, not any display shaping — an `int` prints no fraction digits, a
+  /// `double` always prints at least one and collapses extra trailing zeros to
+  /// a single `.0` (so `1.00` renders as `'1.0'`). Consequently `category(1)`
+  /// and `category(1.0)` differ (`one` vs `other` in English), and visible
+  /// fraction digits beyond the first are lost. When the digits a user actually
+  /// sees matter (CLDR operand `v`), shape the number yourself and pass the
+  /// string to [categoryOfDecimal].
   IcuPluralCategory category(num value) => categoryOfDecimal(value.toString());
 
   /// Classify a pre-shaped decimal STRING into a CLDR plural category.
@@ -118,9 +122,17 @@ final class IcuPluralRules {
   /// [decimal] is a plain decimal literal (`'1'`, `'-2.50'`, `'1000'`); it is
   /// not locale-formatted (no grouping separators, ASCII digits, `.` point).
   IcuPluralCategory categoryOfDecimal(String decimal) {
-    final operands = icu.PluralOperands.fromString(decimal);
-    final ffiCategory = _ffi.categoryFor(operands);
-    return _toFacadeCategory(ffiCategory);
+    try {
+      final operands = icu.PluralOperands.fromString(decimal);
+      final ffiCategory = _ffi.categoryFor(operands);
+      return _toFacadeCategory(ffiCategory);
+    } catch (e) {
+      if (e is IcuUnsupportedError) rethrow;
+      throw IcuDataError(
+        'Not a plain decimal literal: "$decimal" ($e)',
+        marker: 'PluralRules.categoryOfDecimal',
+      );
+    }
   }
 
   /// Returns the set of categories this rule set may produce.

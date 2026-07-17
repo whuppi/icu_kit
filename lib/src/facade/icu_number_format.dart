@@ -252,6 +252,14 @@ void shapeDecimalDigits(
 }) {
   final mode = _ffiRoundingMode(roundingMode ?? IcuRoundingMode.halfExpand);
   if (roundingIncrement != null && roundingIncrement != 1) {
+    if (roundingIncrement <= 0) {
+      // 0 would spin the base-10 decomposition loop below forever
+      // (0 % 10 == 0, 0 ~/ 10 == 0); negatives are never a valid increment.
+      throw IcuDataError(
+        'roundingIncrement must be positive (got $roundingIncrement)',
+        marker: 'shapeDecimalDigits',
+      );
+    }
     if (maximumFractionDigits == null ||
         (minimumFractionDigits ?? 0) != maximumFractionDigits) {
       throw IcuDataError(

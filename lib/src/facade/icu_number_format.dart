@@ -280,10 +280,10 @@ void shapeDecimalDigits(
       5 => icu.DecimalRoundingIncrement.multiplesOf5,
       25 => icu.DecimalRoundingIncrement.multiplesOf25,
       _ => throw IcuDataError(
-          'roundingIncrement must be one of 1, 2, 5, 10, 20, 25, 50, 100, '
-          '200, 250, 500, 1000, 2000, 2500, 5000 (got $roundingIncrement)',
-          marker: 'shapeDecimalDigits',
-        ),
+        'roundingIncrement must be one of 1, 2, 5, 10, 20, 25, 50, 100, '
+        '200, 250, 500, 1000, 2000, 2500, 5000 (got $roundingIncrement)',
+        marker: 'shapeDecimalDigits',
+      ),
     };
     d.roundWithModeAndIncrement(k - maximumFractionDigits, mode, increment);
   } else if (maximumFractionDigits != null) {
@@ -295,7 +295,8 @@ void shapeDecimalDigits(
   // the fraction intent for the browser-Intl Decimal mirror — without it the
   // shim pins fraction digits from the input string and renders "0.0" where
   // native renders "0".
-  final padTo = minimumFractionDigits ??
+  final padTo =
+      minimumFractionDigits ??
       (roundingIncrement != null && roundingIncrement != 1
           ? maximumFractionDigits
           : null);

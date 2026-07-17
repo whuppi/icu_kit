@@ -354,11 +354,7 @@ void main() {
 
     test('increment with significant digits throws', () {
       expect(
-        () => fmt.format(
-          5,
-          maximumSignificantDigits: 2,
-          roundingIncrement: 5,
-        ),
+        () => fmt.format(5, maximumSignificantDigits: 2, roundingIncrement: 5),
         throwsA(isA<IcuDataError>()),
       );
     });

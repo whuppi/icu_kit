@@ -71,10 +71,7 @@ void main() {
       final fmt = IcuCompactFormat(locale: 'en-US');
       final parts = fmt.formatToParts(1234567);
       expect(parts.map((p) => p.value).join(), fmt.format(1234567));
-      expect(
-        parts.map((p) => p.type),
-        contains(IcuNumberPartType.compact),
-      );
+      expect(parts.map((p) => p.type), contains(IcuNumberPartType.compact));
     });
   });
 }

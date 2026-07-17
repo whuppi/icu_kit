@@ -64,14 +64,13 @@ extension type Decimal._(JSObject _self) implements JSObject {
 
   /// Apply an ECMA-402 sign display to the (already rounded) value.
   /// Mirrors ICU4X `Decimal::apply_sign_display`.
-  void applySignDisplay(DecimalSignDisplay signDisplay) => _self
-      .callMethod<JSAny?>('applySignDisplay'.toJS, signDisplay.toJs());
+  void applySignDisplay(DecimalSignDisplay signDisplay) =>
+      _self.callMethod<JSAny?>('applySignDisplay'.toJS, signDisplay.toJs());
 
   /// Drop trailing fraction zeros when the value is integer-valued
   /// (ECMA-402 `trailingZeroDisplay: stripIfInteger`). Mirrors ICU4X
   /// `Decimal::trim_end_if_integer`.
-  void trimEndIfInteger() =>
-      _self.callMethod<JSAny?>('trimEndIfInteger'.toJS);
+  void trimEndIfInteger() => _self.callMethod<JSAny?>('trimEndIfInteger'.toJS);
 
   static JSObject get _cls =>
       IcuKit.module.getProperty<JSObject>('Decimal'.toJS);
@@ -146,9 +145,7 @@ enum DecimalSignDisplay {
 
   /// The JS enum value for this display.
   JSObject toJs() {
-    final cls = IcuKit.module.getProperty<JSObject>(
-      'DecimalSignDisplay'.toJS,
-    );
+    final cls = IcuKit.module.getProperty<JSObject>('DecimalSignDisplay'.toJS);
     return cls.getProperty<JSObject>(switch (this) {
       auto => 'Auto'.toJS,
       never => 'Never'.toJS,

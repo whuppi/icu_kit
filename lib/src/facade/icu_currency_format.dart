@@ -71,7 +71,10 @@ final class IcuCurrencyFormat {
           IcuCurrencyWidth.narrow => icu.CurrencyWidth.narrow,
           IcuCurrencyWidth.code => icu.CurrencyWidth.code,
         },
-        groupingStrategy: resolveGroupingStrategy(useGrouping, groupingStrategy),
+        groupingStrategy: resolveGroupingStrategy(
+          useGrouping,
+          groupingStrategy,
+        ),
       );
       return IcuCurrencyFormat._symbol(formatter);
     } catch (e) {

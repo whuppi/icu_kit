@@ -69,7 +69,10 @@ final class IcuPercentFormat {
           IcuPercentDisplay.approximate => icu.PercentDisplay.approximate,
           IcuPercentDisplay.explicitSign => icu.PercentDisplay.explicitSign,
         },
-        groupingStrategy: resolveGroupingStrategy(useGrouping, groupingStrategy),
+        groupingStrategy: resolveGroupingStrategy(
+          useGrouping,
+          groupingStrategy,
+        ),
       );
       return IcuPercentFormat._(formatter);
     } catch (e) {

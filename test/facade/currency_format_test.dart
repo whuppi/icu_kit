@@ -102,16 +102,23 @@ void main() {
   });
 
   group('IcuCurrencyFormat.symbol — useGrouping (en-US)', () {
-    test('useGrouping: false drops the thousands separators', () {
-      final grouped = IcuCurrencyFormat.symbol(locale: 'en-US')
-          .format(1234567, currencyCode: 'USD');
-      expect(grouped, contains('1,234,567'));
+    test(
+      'useGrouping: false drops the thousands separators',
+      () {
+        final grouped = IcuCurrencyFormat.symbol(
+          locale: 'en-US',
+        ).format(1234567, currencyCode: 'USD');
+        expect(grouped, contains('1,234,567'));
 
-      final plain = IcuCurrencyFormat.symbol(locale: 'en-US', useGrouping: false)
-          .format(1234567, currencyCode: 'USD');
-      expect(plain, contains('1234567'));
-      expect(plain, isNot(contains('1,234')));
-    }, tags: ['experimental_currency']);
+        final plain = IcuCurrencyFormat.symbol(
+          locale: 'en-US',
+          useGrouping: false,
+        ).format(1234567, currencyCode: 'USD');
+        expect(plain, contains('1234567'));
+        expect(plain, isNot(contains('1,234')));
+      },
+      tags: ['experimental_currency'],
+    );
   });
 
   group('IcuCurrencyFormat.symbol — Narrow width (en-US)', () {
@@ -170,8 +177,10 @@ void main() {
     });
 
     test('useGrouping: false drops separators on the long form', () {
-      final grouped = IcuCurrencyFormat.long(locale: 'en-US', currencyCode: 'USD')
-          .format(1234567);
+      final grouped = IcuCurrencyFormat.long(
+        locale: 'en-US',
+        currencyCode: 'USD',
+      ).format(1234567);
       expect(grouped, contains('1,234,567'));
 
       final plain = IcuCurrencyFormat.long(

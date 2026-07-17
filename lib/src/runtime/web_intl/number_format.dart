@@ -80,15 +80,13 @@ JSObject _decimal(String s) {
   // applySignDisplay(display): record for Intl's signDisplay option.
   o.setProperty(
     'applySignDisplay'.toJS,
-    ((JSObject display) =>
-            recStr('signDisplay', enumStringValue(display)))
-        .toJS,
+    ((JSObject display) => recStr(
+      'signDisplay',
+      enumStringValue(display),
+    )).toJS,
   );
   // trimEndIfInteger(): record for Intl's trailingZeroDisplay option.
-  o.setProperty(
-    'trimEndIfInteger'.toJS,
-    (() => rec('stripIfInteger', 1)).toJS,
-  );
+  o.setProperty('trimEndIfInteger'.toJS, (() => rec('stripIfInteger', 1)).toJS);
   return o;
 }
 
@@ -163,7 +161,9 @@ String? _recordedStr(JSObject d, String key) =>
   final minInt = _recorded(d, 'minInt');
   final fracShaped = recMinFrac != null || recMaxFrac != null;
   final minFrac = fracShaped ? (recMinFrac ?? 0) : own;
-  var maxFrac = fracShaped ? (recMaxFrac ?? (own > minFrac ? own : minFrac)) : own;
+  var maxFrac = fracShaped
+      ? (recMaxFrac ?? (own > minFrac ? own : minFrac))
+      : own;
   if (maxFrac < minFrac) maxFrac = minFrac;
   return (minFrac: minFrac, maxFrac: maxFrac, minInt: minInt);
 }
@@ -609,9 +609,9 @@ void registerNumberFormat(JSObject module) {
         jsStringify(v),
       )).toJS,
       'fromNumberWithSignificantDigits':
-          ((JSNumber v, JSNumber digits) =>
-                  _decimal(_sigString(v.toDartDouble, digits.toDartInt)))
-              .toJS,
+          ((JSNumber v, JSNumber digits) => _decimal(
+            _sigString(v.toDartDouble, digits.toDartInt),
+          )).toJS,
     }),
   );
 
@@ -652,13 +652,17 @@ void registerNumberFormat(JSObject module) {
     'CompactDecimalFormatter',
     staticClass({
       'createShort':
-          ((JSObject locale, [JSObject? grouping]) =>
-                  _compactFormatter(locale, 'short', grouping))
-              .toJS,
+          ((JSObject locale, [JSObject? grouping]) => _compactFormatter(
+            locale,
+            'short',
+            grouping,
+          )).toJS,
       'createLong':
-          ((JSObject locale, [JSObject? grouping]) =>
-                  _compactFormatter(locale, 'long', grouping))
-              .toJS,
+          ((JSObject locale, [JSObject? grouping]) => _compactFormatter(
+            locale,
+            'long',
+            grouping,
+          )).toJS,
     }),
   );
   put(
@@ -713,9 +717,12 @@ void registerNumberFormat(JSObject module) {
     'UnitsFormatter',
     staticClass({
       'createForUnit':
-          ((JSObject locale, JSString unit,
-                      [JSObject? width, JSObject? grouping]) =>
-                  _unitsFormatter(locale, unit, width, grouping))
+          ((
+                JSObject locale,
+                JSString unit, [
+                JSObject? width,
+                JSObject? grouping,
+              ]) => _unitsFormatter(locale, unit, width, grouping))
               .toJS,
     }),
   );

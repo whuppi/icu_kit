@@ -93,7 +93,10 @@ final class IcuUnitFormat {
           IcuUnitWidth.short => icu.UnitsWidth.short,
           IcuUnitWidth.narrow => icu.UnitsWidth.narrow,
         },
-        groupingStrategy: resolveGroupingStrategy(useGrouping, groupingStrategy),
+        groupingStrategy: resolveGroupingStrategy(
+          useGrouping,
+          groupingStrategy,
+        ),
       );
       return IcuUnitFormat._(formatter, unit);
     } catch (e) {

@@ -57,10 +57,16 @@ final class IcuCompactFormat {
     final strategy = resolveGroupingStrategy(useGrouping, groupingStrategy);
     try {
       final formatter = switch (display) {
-        IcuCompactDisplay.short =>
-          dispatch.compactDecimalFormatterShort(locale, loc.ffi, strategy),
-        IcuCompactDisplay.long =>
-          dispatch.compactDecimalFormatterLong(locale, loc.ffi, strategy),
+        IcuCompactDisplay.short => dispatch.compactDecimalFormatterShort(
+          locale,
+          loc.ffi,
+          strategy,
+        ),
+        IcuCompactDisplay.long => dispatch.compactDecimalFormatterLong(
+          locale,
+          loc.ffi,
+          strategy,
+        ),
       };
       return IcuCompactFormat._(formatter);
     } catch (e) {

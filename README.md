@@ -80,7 +80,7 @@ Nothing to do. On iOS, Android, macOS, Windows, and Linux, the build hook downlo
 
 ### Web
 
-Web runs on one of two engines — **pick one**, the facade API is the same either way. **ICU4X mode** (default) ships ICU4X for full coverage and identical output everywhere; **browser Intl mode** serves the facades off the browser's own `Intl` for a zero-byte bundle and the ECMA-402 subset.
+Web runs on one of two engines — **pick one**, the API is the same either way. **ICU4X mode** (default) ships ICU4X for full coverage and identical output everywhere; **browser Intl mode** runs the same classes on the browser's own `Intl` for a zero-byte download and a smaller feature set (whatever the browser's `Intl` supports).
 
 <details>
 <summary><b>🧩 which mode should I pick?</b></summary>
@@ -94,7 +94,7 @@ Web runs on one of two engines — **pick one**, the facade API is the same eith
 | **Output** | identical to native and to every browser | tracks each browser's CLDR version, so it can differ between browsers |
 | **Coverage** | everything icu_kit does | the ECMA-402 subset (the capability matrix below lists exactly what) |
 
-Turn each on in its subsection below. Pick ICU4X mode when you want the full Unicode surface or "the same input formats the same everywhere." Pick browser Intl mode when a zero-byte web bundle matters more than full coverage. The facades are identical either way, and native always runs the full ICU4X engine.
+Turn each on in its subsection below. Pick ICU4X mode when you want every feature, or the same input formatting the same everywhere. Pick browser Intl mode when a zero-byte web download matters more than full coverage. The classes are identical either way, and native always runs the full ICU4X engine.
 
 </details>
 
@@ -168,7 +168,7 @@ Browser Intl mode covers the ECMA-402 core; what the browser can't do raises `Ic
 
 `FULL` works completely. `PARTIAL` means the common path works but some options have no `Intl` equivalent. `THROW` means it raises `IcuUnsupportedError` (no browser API).
 
-| Facade family | ICU4X mode | Browser Intl mode | Note |
+| Formatter family | ICU4X mode | Browser Intl mode | Note |
 |---|:---:|:---:|---|
 | Locale (parse / canonicalize / maximize / RTL) | FULL | FULL | fallback chain is PARTIAL (single-step, no CLDR parent walk) |
 | Plural rules | FULL | PARTIAL | number-parsed operands lose explicit trailing zeros (`1.0`) |
@@ -223,18 +223,18 @@ Future<void> main() async {
 }
 ```
 
-`IcuKit.init()` is the one bootstrap step. Call it once at app startup, await it, then construct facades freely. Each facade is locale-pinned at construction; reuse instances across calls for the same `(locale, options)` tuple.
+`IcuKit.init()` is the one setup call. Run it once at app startup, await it, then create the formatter classes freely. Each one is locked to a locale when you create it; reuse an instance across calls that share the same locale and options.
 
 ---
 
 ## Usage
 
 One capability per section — every formatter follows the same shape:
-parse an `IcuLocale`, construct the facade, call it.
+parse an `IcuLocale`, create the formatter, call it.
 
 ### Numbers
 
-Decimal, currency, percent, and units. Each is a separate facade because they have different option spaces.
+Decimal, currency, percent, and units. Each is a separate class because they take different options.
 
 ```dart
 // Same number, three locales. German swaps period and comma — easy to miss
@@ -256,7 +256,7 @@ for (final part in IcuNumberFormat.decimal(locale: 'en-US').formatToParts(-1234.
 // integer:   "234"
 // decimal:   "."
 // fraction:  "5"
-// Joining every part's value reproduces format() exactly. Works on every facade
+// Joining every part's value reproduces format() exactly. Works on every formatter
 // (currency → a `currency` part, percent → `percentSign`, units → `unit`).
 ```
 
@@ -300,8 +300,8 @@ print(IcuCompactFormat(locale: 'en-US', display: IcuCompactDisplay.long)
 ```
 
 ```dart
-// The full ECMA-402 digit surface lives on format() — pass what you need,
-// it applies to every number facade the same way. Same option names as
+// The full set of digit options lives on format() — pass what you need,
+// it applies to every number formatter the same way. Same option names as
 // JavaScript's Intl.NumberFormat.
 final n = IcuNumberFormat.decimal(locale: 'en-US');
 print(n.format(3.5, minimumFractionDigits: 2));             // "3.50"  ← pad
@@ -600,7 +600,7 @@ print(idna.toAscii('münchen.de'));         // "xn--mnchen-3ya.de"
 print(idna.toUnicode('xn--wgv71a.jp'));    // "日本.jp"
 ```
 
-Three modes for different needs: `IcuIdna.url()` (what browsers do — most lenient, default), `IcuIdna.strict()` (DNS-only), `IcuIdna.uts46()` (strict standards conformance).
+Three modes for different needs: `IcuIdna.url()` (what browsers do — most lenient, default), `IcuIdna.strict()` (DNS-only), `IcuIdna.uts46()` (strict standards compliance).
 
 IDNA doesn't need any locale data — it works no matter how you set up the data loading below.
 
@@ -631,9 +631,9 @@ The full hierarchy:
 | `IcuLocaleParseError` | A locale string isn't valid BCP-47 |
 | `IcuFormatError` | A formatter rejects an input value |
 | `IcuDataError` | CLDR data lookup failed (formatter unavailable for this locale) |
-| `IcuIdnaError` | IDNA conformance failure |
+| `IcuIdnaError` | IDNA validation failure |
 | `IcuMissingDataError` | Lazy-loaded locale isn't available (see "Bundle size" below) |
-| `IcuLoadError` | Internal: facade can't reach the underlying ICU4X (e.g., `IcuKit.init` not awaited) |
+| `IcuLoadError` | Internal: a formatter can't reach the underlying ICU4X (e.g., `IcuKit.init` not awaited) |
 
 All extend `IcuError` if you want a single catch-all.
 
@@ -675,7 +675,7 @@ Four steps take you from the fat default to a lean binary fed by postcards.
 dart run icu_kit:slice --locales=und,en,fr,ja --markers=kit --per-locale
 ```
 
-This writes `assets/icu/und.postcard`, `en.postcard`, `fr.postcard`, `ja.postcard`. The default `--out=assets/icu/` matches `IcuDataSource.assets`'s default prefix, so no extra wiring. Pick a lighter `--markers` preset when you don't need every facade ([measured sizes](#postcard-sizes-by-preset)).
+This writes `assets/icu/und.postcard`, `en.postcard`, `fr.postcard`, `ja.postcard`. The default `--out=assets/icu/` matches `IcuDataSource.assets`'s default prefix, so no extra wiring. Pick a lighter `--markers` preset when you don't need every formatter ([measured sizes](#postcard-sizes-by-preset)).
 
 `und` is not a typo: the locale-independent data — segmentation dictionaries, Unicode property tables — lives under the `und` locale, and the text facades read it for every language. Slice and preload `und` whenever your preset includes those facades; an app that only formats numbers and dates with `format-core` can skip it.
 
@@ -736,7 +736,7 @@ When the user switches locale at runtime, call `preloadLocale` for the new one.
 
 <br>
 
-`slice` groups markers into presets that match icu_kit's facade families, so you write `--markers=format-core` instead of naming fourteen markers. Measured for locale `de`, icu4x 2.2:
+`slice` groups markers into presets that match icu_kit's formatter families, so you write `--markers=format-core` instead of naming fourteen markers. Measured for locale `de`, icu4x 2.2:
 
 | `--markers` | Covers | `de.postcard` |
 |---|---|---:|
@@ -777,7 +777,7 @@ At startup, `IcuKit.init` checks the binary it actually loaded against this argu
 
 <br>
 
-You might expect a third option between fat and lean: a binary with *only your locales* inside and no runtime files. ICU4X can build one, and we measured it. The result is not worth shipping: much of the data (segmentation dictionaries, Unicode property tables) is the same for every locale, so a one-locale binary still lands near 8–10 MB, and the mechanism is incompatible with the experimental formatters, which would quietly disappear from such a build. A lean binary plus postcards gives the same outcome (small footprint, only your locales, works offline) with every facade intact. The full measurements are in [`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md).
+You might expect a third option between fat and lean: a binary with *only your locales* inside and no runtime files. ICU4X can build one, and we measured it. The result is not worth shipping: much of the data (segmentation dictionaries, Unicode property tables) is the same for every locale, so a one-locale binary still lands near 8–10 MB, and the mechanism is incompatible with the experimental formatters, which would quietly disappear from such a build. A lean binary plus postcards gives the same outcome (small footprint, only your locales, works offline) with every formatter intact. The full measurements are in [`docs/CAPABILITY_ROADMAP.md`](docs/CAPABILITY_ROADMAP.md).
 
 </details>
 
@@ -835,9 +835,9 @@ On capabilities, icu_kit is a superset of the Dart alternatives: everything they
 
 **"I already use `package:intl`."** Keep it — for what it's for. Message translation (ARB catalogs, `Intl.message`) is a different job, and icu_kit doesn't do it; the two run side by side. For *formatting*, `intl` covers common numbers and dates, and the moment you need more — currency long names, time zones, non-Gregorian calendars, non-Latin numbering, segmentation, locale-aware casing, normalization, bidi — that's what icu_kit is for.
 
-**"Isn't [`intl4x`](https://pub.dev/packages/intl4x) the official one?"** Yes — the Dart team's package, currently experimental. On web it always delegates to the browser's `Intl`, so a value can format differently on native and web with no way to opt out. icu_kit gives you that same zero-engine web path ([browser Intl mode](#web)) *and* an ICU4X mode with identical output everywhere — you pick per app. On top of that, icu_kit adds the rest of the Unicode surface and the lean-binary data dial. What intl4x offers instead: official backing.
+**"Isn't [`intl4x`](https://pub.dev/packages/intl4x) the official one?"** Yes — the Dart team's package, currently experimental. On web it always delegates to the browser's `Intl`, so a value can format differently on native and web with no way to opt out. icu_kit gives you that same zero-engine web path ([browser Intl mode](#web)) *and* an ICU4X mode with identical output everywhere — you pick per app. On top of that, icu_kit adds the rest of Unicode's features and the lean-binary size control. What intl4x offers instead: official backing.
 
-**"Why not the raw [`icu4x`](https://pub.dev/packages/icu4x) bindings?"** That's Unicode's own package, published straight from the ICU4X repo — same engine, official packaging. What it ships is the machine-generated API with no facade layer (`DateTimeLength.Medium`, `Locale.fromString`), no web support yet, and one binary shape: a prebuilt library with all CLDR data baked in, which its README puts at about 15 MB added to your app on most platforms (tree-shaking of unused APIs currently needs a dev-channel Dart flag, Linux only). The right pick if you want the official artifact and will build your own ergonomics on top — intl4x does exactly that. icu_kit is that layer, already built: typed facades, loud data errors, web via WebAssembly, the lean-binary data dial, docs.
+**"Why not the raw [`icu4x`](https://pub.dev/packages/icu4x) bindings?"** That's Unicode's own package, published straight from the ICU4X repo — same engine, official packaging. What it ships is the machine-generated API with no convenience layer (`DateTimeLength.Medium`, `Locale.fromString`), no web support yet, and one binary shape: a prebuilt library with all CLDR data baked in, which its README puts at about 15 MB added to your app on most platforms (tree-shaking of unused APIs currently needs a dev-channel Dart flag, Linux only). The right pick if you want the official artifact and will build your own convenience layer on top — intl4x does exactly that. icu_kit is that layer, already built: typed classes, loud data errors, web via WebAssembly, the lean-binary size control, docs.
 
 **"What about ICU4C?"** The C++ classic — reasonable on servers where it's already installed. It's ~30 MB with data and doesn't compile cleanly to WebAssembly; ICU4X was designed for the client-side world icu_kit lives in.
 
@@ -851,7 +851,7 @@ The README covers the everyday stuff. wanna go deeper?
 
 | Doc | What's inside |
 |---|---|
-| [Architecture](docs/ARCHITECTURE.md) | How it's built: the five layers, the dispatch seam, the vendored fork, the test harness |
+| [Architecture](docs/ARCHITECTURE.md) | How it's built: the five layers, the dispatch layer, the vendored fork, the test harness |
 | [Capabilities](docs/CAPABILITY_ROADMAP.md) | What's shipped, what's experimental, what won't happen |
 | [Updating](docs/UPDATING.md) | The fork contract, patch markers, and every maintenance recipe |
 | [Contributing](CONTRIBUTING.md) | Setup, PR workflow, the `make check` gate |

@@ -141,10 +141,6 @@ final class IcuNumberFormat {
   }
 }
 
-/// Maps Dart's `num` to ICU4X's `Decimal`. Top-level so both decimal and
-/// currency facades reuse it.
-icu.Decimal toDecimalFfi(num value) => _toDecimal(value);
-
 /// Build the shaped ICU4X Decimal for [value] under ECMA-402 digit options.
 /// Every number-style facade (decimal / percent / currency / unit) builds its
 /// Decimal through this, so digit shaping is identical across styles.

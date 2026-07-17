@@ -2,7 +2,7 @@ import '../runtime/bindings.dart' as icu;
 import '../errors/icu_error.dart';
 import '../runtime/dispatch.dart' as dispatch;
 import 'icu_locale.dart';
-import 'icu_number_format.dart' show toDecimalFfi;
+import 'icu_number_format.dart' show shapedDecimalFfi;
 
 /// Locale-aware relative-time formatting — STABLE.
 ///
@@ -48,7 +48,7 @@ final class IcuRelativeTimeFormat {
   ///   * `format(2)`  → "in 2 days"
   ///   * `format(-3)` → "3 days ago"
   String format(num value) {
-    final decimal = toDecimalFfi(value);
+    final decimal = shapedDecimalFfi(value);
     return _ffi.format(decimal);
   }
 }

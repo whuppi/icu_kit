@@ -24,7 +24,7 @@
 
 Everything a Dart or Flutter app needs to work in any language: number formatting, plural rules, date/time formatting, lists, locale-aware sorting, breaking text into words/sentences, case mapping, normalization, right-to-left layout helpers, calendars (Hebrew, Hijri, Japanese, …), time zones, internationalized domain names. Unicode's **ICU4X** engine is compiled in — the same engine, the same output, on every platform: native via `dart:ffi`, web via WebAssembly.
 
-> **Status:** 0.x. The API can change between minor versions until `1.0.0` — pre-1.0, the minor is the breaking axis, so pin `^0.N.0` and read the changelog on minor bumps. Separately, three formatters (currency, percent, unit) are `@experimental` because upstream ICU4X is still redesigning their API; those can change even after 1.0 and are flagged where they appear.
+> **Status:** 0.x. The API can change between minor versions until `1.0.0` — pre-1.0, the minor is the breaking axis, so pin `^0.N.0` and read the changelog on minor bumps. Separately, four formatters (currency, percent, unit, compact) are `@experimental` because upstream ICU4X is still redesigning their API; those can change even after 1.0 and are flagged where they appear.
 
 > like it? a [⭐ star](https://github.com/whuppi/icu_kit) or [👍 like](https://pub.dev/packages/icu_kit) is the entire marketing budget. [Bugs & features →](https://github.com/whuppi/icu_kit/issues)
 
@@ -292,7 +292,28 @@ final fr = IcuUnitFormat(locale: 'fr', unit: 'kilogram', width: IcuUnitWidth.sho
 print(fr.format(2.5));      // "2,5 kg"
 ```
 
-> **Note:** `IcuCurrencyFormat`, `IcuPercentFormat`, and `IcuUnitFormat` are marked `@experimental` because they're backed by `icu_experimental` Rust crates pending [unicode-org/icu4x PR #7789](https://github.com/unicode-org/icu4x/pull/7789)'s unified `CurrencyDisplay` API. The current API works; if upstream changes shape, we'll document the migration.
+```dart
+// Compact notation — "1.2M" or "1.2 million", CLDR-correct per locale.
+print(IcuCompactFormat(locale: 'en-US').format(1234000));   // "1.2M"
+print(IcuCompactFormat(locale: 'en-US', display: IcuCompactDisplay.long)
+    .format(1234000));                                      // "1.2 million"
+```
+
+```dart
+// The full ECMA-402 digit surface lives on format() — pass what you need,
+// it applies to every number facade the same way. Same option names as
+// JavaScript's Intl.NumberFormat.
+final n = IcuNumberFormat.decimal(locale: 'en-US');
+print(n.format(3.5, minimumFractionDigits: 2));             // "3.50"  ← pad
+print(n.format(12345, maximumSignificantDigits: 3));        // "12,300"  ← significant digits
+print(n.format(42, signDisplay: IcuSignDisplay.exceptZero));// "+42"   ← always show the sign
+print(n.format(2.127, minimumFractionDigits: 2,             // "2.15"  ← nickel rounding
+    maximumFractionDigits: 2, roundingIncrement: 5));
+print(n.format(5, minimumFractionDigits: 2,                 // "5"     ← drop zeros on whole numbers
+    trailingZeroDisplay: IcuTrailingZeroDisplay.stripIfInteger));
+```
+
+> **Note:** `IcuCurrencyFormat`, `IcuPercentFormat`, `IcuUnitFormat`, and `IcuCompactFormat` are marked `@experimental` because they're backed by `icu_experimental` Rust crates pending [unicode-org/icu4x PR #7789](https://github.com/unicode-org/icu4x/pull/7789)'s unified `CurrencyDisplay` API. The current API works; if upstream changes shape, we'll document the migration.
 
 ---
 

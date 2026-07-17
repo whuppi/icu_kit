@@ -11,8 +11,8 @@ ECMA-402 / Unicode capabilities exposed via the public facade.
 | Domain | Facade(s) | Coverage | Tier |
 |---|---|---|:---:|
 | **Locale** | `IcuLocale`, `IcuLocaleCanonicalizer`, `IcuLocaleExpander`, `IcuLocaleDirectionality`, `IcuLocaleFallbacker` | Parse + canonicalize + maximize/minimize + RTL/LTR + CLDR fallback chain | A |
-| **Plural rules** | `IcuPluralRules` | Cardinal + ordinal, every CLDR locale | A |
-| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat, incl. `formatToParts` (typed part output). The full rounding surface — `roundingMode` (all nine), `roundingIncrement`, `trailingZeroDisplay`, `signDisplay` — lives on the shared digit shaper, so every number facade below inherits it | A |
+| **Plural rules** | `IcuPluralRules` | Cardinal + ordinal, every CLDR locale; `categoryOfDecimal` for operand-exact selection (trailing-zero aware, e.g. `1.0` ≠ `1`) | A |
+| **Decimal numbers** | `IcuNumberFormat` | `style: "decimal"` portion of ECMA-402 NumberFormat, incl. `formatToParts` (typed part output). The full digit + rounding surface — minimum/maximum fraction and integer digits, minimum/maximum significant digits, `roundingMode` (all nine), `roundingIncrement`, `trailingZeroDisplay`, `signDisplay` — lives on the shared digit shaper (a `format()` option bag), so every number facade below inherits it | A |
 | **Compact numbers** | `IcuCompactFormat` | ECMA-402 `notation: "compact"` — short ("1.2M") / long ("1.2 million"), CLDR significand rounding, grouping, `formatToParts` (abbreviation → one `compact` part) | C ⚠ |
 | **Currency** | `IcuCurrencyFormat` | Symbol / narrow / ISO-code widths (`currencyDisplay: "code"` with CLDR alpha-next-to-number spacing) + long form (plural-correct "1 US dollar" / "2 US dollars"); grouping; `formatToParts` (symbol/name → `currency` part) | C ⚠ |
 | **Percent** | `IcuPercentFormat` | Standard / approximate / explicit-sign; grouping; `formatToParts` (→ `percentSign`, typed signs) | C ⚠ |

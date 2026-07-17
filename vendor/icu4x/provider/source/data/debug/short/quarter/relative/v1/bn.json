@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "গত ত্রৈমাসিক",
+    "0": "এই ত্রৈমাসিক",
+    "1": "পরের ত্রৈমাসিক"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " ত্রৈমাসিক আগে"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " ত্রৈমাসিকে"
+        }
+      ]
+    ]
+  }
+}

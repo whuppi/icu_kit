@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen hafta",
+    "0": "bu hafta",
+    "1": "gelecek hafta"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " hafta önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " hafta sonra"
+        }
+      ]
+    ]
+  }
+}

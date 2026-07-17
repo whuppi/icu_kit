@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "nakaraang linggo",
+    "0": "ngayong linggo",
+    "1": "susunod na linggo"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " linggo ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " linggo"
+        }
+      ]
+    ]
+  }
+}

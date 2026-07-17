@@ -1,0 +1,45 @@
+{
+  "name": "icu",
+  "version": "2.1.0",
+  "description": "ICU4X JavaScript bindings via WebAssembly",
+  "main": "lib/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./lib/index.mjs",
+      "types": "./lib/index.d.ts"
+    }
+  },
+  "type": "module",
+  "directories": {
+    "lib": "lib",
+    "test": "test",
+    "bench": "bench"
+  },
+  "ava": {
+    "files": [
+      "test/*.mjs"
+    ]
+  },
+  "scripts": {
+    "test": "ava",
+    "bench": "node bench/all.mjs",
+    "prepare": "make"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unicode-org/icu4x.git"
+  },
+  "keywords": [
+    "i18n"
+  ],
+  "bugs": {
+    "url": "https://github.com/unicode-org/icu4x/issues"
+  },
+  "homepage": "https://icu4x.unicode.org",
+  "author": "The ICU4X Project Developers",
+  "license": "Unicode-3.0",
+  "devDependencies": {
+    "ava": "^5.3.1",
+    "benchmark": "^2.1.4"
+  }
+}

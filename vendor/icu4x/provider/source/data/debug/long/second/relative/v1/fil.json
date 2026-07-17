@@ -1,0 +1,34 @@
+{
+  "relatives": {
+    "0": "ngayon"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " segundo ang nakalipas"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "sa "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " segundo"
+        }
+      ]
+    ]
+  }
+}

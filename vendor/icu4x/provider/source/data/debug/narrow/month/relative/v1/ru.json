@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "в пр. мес.",
+    "0": "в эт. мес.",
+    "1": "в след. мес."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " мес."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " мес."
+        }
+      ]
+    ]
+  }
+}

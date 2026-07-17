@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "в прошлом мес.",
+    "0": "в этом мес.",
+    "1": "в следующем мес."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " мес. назад"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "через "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " мес."
+        }
+      ]
+    ]
+  }
+}

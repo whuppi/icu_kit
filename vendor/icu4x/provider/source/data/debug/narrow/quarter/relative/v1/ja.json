@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "前四半期",
+    "0": "今四半期",
+    "1": "翌四半期"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": "四半期前"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": "四半期後"
+        }
+      ]
+    ]
+  }
+}

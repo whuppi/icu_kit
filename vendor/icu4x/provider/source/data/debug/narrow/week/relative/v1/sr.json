@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "прошле н.",
+    "0": "ове н.",
+    "1": "следеће н."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "пре "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " н."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "за "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " н."
+        }
+      ]
+    ]
+  }
+}

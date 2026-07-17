@@ -71,7 +71,7 @@ Everything a Dart or Flutter app needs to work in any language: number formattin
 
 ```yaml
 dependencies:
-  icu_kit:
+  icu_kit: ^0.2.0-dev.0
 ```
 
 ### Native
@@ -109,7 +109,7 @@ flutter pub run icu_kit:setup
 Pin the version, too, so a `pub upgrade` can't silently bump it and leave that fetched asset stale:
 
 ```yaml
-icu_kit: X.Y.Z  # exact version
+icu_kit: 0.2.0-dev.0  # exact version
 ```
 
 <details>
@@ -694,7 +694,7 @@ Native, in your app's `pubspec.yaml`:
 ```yaml
 hooks:
   user_defines:
-    icu_kit:
+    icu_kit: ^0.2.0-dev.0
       bundleCldrData: false
 ```
 

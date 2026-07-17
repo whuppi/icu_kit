@@ -1,0 +1,180 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+[package]
+name = "icu"
+description = "ICU4X: International Components for Unicode, written in Rust"
+categories.workspace = true
+keywords = ["unicode", "internationalization", "localization", "i18n"]
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+icu_calendar = { workspace = true, features = ["alloc"] }
+icu_casemap = { workspace = true }
+icu_collator = { workspace = true }
+icu_collections = { workspace = true }
+icu_datetime = { workspace = true }
+icu_decimal = { workspace = true, features = ["alloc"]  }
+icu_list = { workspace = true, features = ["alloc"] }
+icu_locale = { workspace = true }
+icu_normalizer = { workspace = true }
+icu_plurals = { workspace = true }
+icu_properties = { workspace = true, features = ["alloc"] }
+icu_segmenter = { workspace = true }
+icu_time = { workspace = true, features = ["alloc"] }
+icu_experimental = { workspace = true, optional = true }
+icu_pattern = { workspace = true, optional = true }
+
+# For markers_from_bin
+icu_provider_registry = { workspace = true, optional = true }
+memchr = { workspace = true, optional = true }
+
+# For docs links and features
+icu_provider = { workspace = true }
+
+[dev-dependencies]
+icu_datetime = { path = "../../components/datetime", features = ["serde", "unstable_jiff_0_2", "unstable_chrono_0_4"] }
+icu_host_info = { path = "../../utils/host_info", features = ["datetime"] }
+icu_provider_adapters = { path = "../../provider/adapters", features = ["serde"] }
+icu_benchmark_macros = { path = "../../tools/benchmark/macros" }
+icu_provider_blob = { path = "../../provider/blob", features = ["alloc"] }
+writeable = { path = "../../utils/writeable" }
+jiff = { workspace = true, features = ["tzdb-bundle-always", "tz-system", "std"] }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+
+[features]
+default = [
+    "icu_calendar/default",
+    "icu_casemap/default",
+    "icu_collator/default",
+    "icu_datetime/default",
+    "icu_decimal/default",
+    "icu_list/default",
+    "icu_locale/default",
+    "icu_normalizer/default",
+    "icu_plurals/default",
+    "icu_properties/default",
+    "icu_segmenter/default",
+    "icu_time/default",
+    "icu_experimental?/default",
+    "icu_pattern?/default",
+]
+serde = [
+    "icu_calendar/serde",
+    "icu_casemap/serde",
+    "icu_collator/serde",
+    "icu_collections/serde",
+    "icu_datetime/serde",
+    "icu_decimal/serde",
+    "icu_list/serde",
+    "icu_locale/serde",
+    "icu_normalizer/serde",
+    "icu_plurals/serde",
+    "icu_properties/serde",
+    "icu_segmenter/serde",
+    "icu_time/serde",
+    "icu_experimental?/serde",
+    "icu_pattern?/serde",
+]
+compiled_data = [
+    "icu_calendar/compiled_data",
+    "icu_casemap/compiled_data",
+    "icu_collator/compiled_data",
+    "icu_datetime/compiled_data",
+    "icu_decimal/compiled_data",
+    "icu_list/compiled_data",
+    "icu_locale/compiled_data",
+    "icu_normalizer/compiled_data",
+    "icu_plurals/compiled_data",
+    "icu_properties/compiled_data",
+    "icu_segmenter/compiled_data",
+    "icu_time/compiled_data",
+    "icu_experimental?/compiled_data",
+]
+datagen = [
+    "dep:icu_provider_registry",
+    "dep:memchr",
+    "icu_calendar/datagen",
+    "icu_casemap/datagen",
+    "icu_collator/datagen",
+    "icu_datetime/datagen",
+    "icu_decimal/datagen",
+    "icu_list/datagen",
+    "icu_locale/datagen",
+    "icu_normalizer/datagen",
+    "icu_plurals/datagen",
+    "icu_properties/datagen",
+    "icu_segmenter/datagen",
+    "icu_time/datagen",
+    "icu_experimental?/datagen",
+]
+serde_human = [
+    "icu_list/serde_human"
+]
+unstable = [
+    "icu_calendar/unstable",
+    "icu_datetime/unstable",
+    "icu_plurals/unstable",
+    "icu_time/unstable",
+    "dep:icu_experimental",
+    "dep:icu_pattern",
+]
+sync = ["icu_provider/sync"]
+logging = ["icu_provider/logging", "icu_datetime/logging"]
+
+[package.metadata.cargo-all-features]
+# Components are tested individually, and there's no logic in this crate
+skip_feature_sets = [[]]
+
+[[example]]
+name = "tui"
+required-features = ["serde"]
+
+[[example]]
+name = "chrono_jiff"
+
+[[example]]
+name = "iso_date_manipulations"
+
+[[example]]
+name = "work_log"
+required-features = ["compiled_data"]
+
+[[example]]
+name = "code_line_diff"
+required-features = ["serde"]
+
+[[example]]
+name = "and_list"
+
+[[example]]
+name = "filter_langids"
+test = true
+
+[[example]]
+name = "syntatically_canonicalize_locales"
+test = true
+
+[[example]]
+name = "unread_emails"
+required-features = ["serde"]
+
+[[example]]
+name = "elevator_floors"
+required-features = ["serde"]
+
+[lints]
+workspace = true

@@ -1,0 +1,63 @@
+{
+  "defaults": [
+    [
+      [
+        45,
+        "Standard"
+      ],
+      "CET"
+    ],
+    [
+      [
+        45,
+        "Daylight"
+      ],
+      "CEST"
+    ],
+    [
+      [
+        46,
+        "Standard"
+      ],
+      "EET"
+    ],
+    [
+      [
+        46,
+        "Daylight"
+      ],
+      "EEST"
+    ],
+    [
+      [
+        47,
+        "Standard"
+      ],
+      "WET"
+    ],
+    [
+      [
+        47,
+        "Daylight"
+      ],
+      "WEST"
+    ],
+    [
+      [
+        52,
+        "Standard"
+      ],
+      "GMT"
+    ]
+  ],
+  "overrides": [
+    [
+      [
+        "utc",
+        "Standard"
+      ],
+      "UTC"
+    ]
+  ],
+  "use_standard": []
+}

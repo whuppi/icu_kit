@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "последний кв.",
+    "0": "текущий кв.",
+    "1": "следующий кв."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " кв. назад"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "через "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " кв."
+        }
+      ]
+    ]
+  }
+}

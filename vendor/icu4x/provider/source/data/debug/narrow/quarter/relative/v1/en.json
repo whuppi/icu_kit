@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "last qtr.",
+    "0": "this qtr.",
+    "1": "next qtr."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": "q ago"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "in "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": "q"
+        }
+      ]
+    ]
+  }
+}

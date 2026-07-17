@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "prošlog mes.",
+    "0": "ovog mes.",
+    "1": "sledećeg mes."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "pre "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " mes."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "za "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " mes."
+        }
+      ]
+    ]
+  }
+}

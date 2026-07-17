@@ -1,0 +1,33 @@
+{
+  "relatives": {
+    "-1": "geçen hf.",
+    "0": "bu hf.",
+    "1": "gelecek hf."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " hf. önce"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " hf. sonra"
+        }
+      ]
+    ]
+  }
+}

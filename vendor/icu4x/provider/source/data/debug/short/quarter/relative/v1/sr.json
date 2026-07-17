@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "прошлог квартала",
+    "0": "овог квартала",
+    "1": "следећег квартала"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "пре "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " кв."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "за "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " кв."
+        }
+      ]
+    ]
+  }
+}

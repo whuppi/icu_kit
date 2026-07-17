@@ -1,3 +1,0 @@
-[submodule "vendor/icu4x"]
-	path = vendor/icu4x
-	url = https://github.com/whuppi/icu4x.git

@@ -1,0 +1,21 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+name: example
+description: A sample command-line application.
+
+publish_to: none
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  icu4x:
+    path: ../../ffi/dart/
+
+hooks:
+  user_defines:
+    icu4x:
+      buildMode: checkout
+      checkoutPath: ../../

@@ -1,0 +1,42 @@
+{
+  "relatives": {
+    "0": "𑄃𑄨𑄇𑄴𑄅𑄚𑄪"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " 𑄥𑄬𑄉𑄬𑄚𑄴 𑄃𑄉𑄬"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "one": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " 𑄥𑄬𑄉𑄬𑄚𑄴"
+        }
+      ]
+    ],
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " 𑄥𑄬𑄉𑄬𑄚𑄴𑄘𑄬"
+        }
+      ]
+    ]
+  }
+}

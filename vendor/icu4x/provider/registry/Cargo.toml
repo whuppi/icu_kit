@@ -1,0 +1,24 @@
+# This file is part of ICU4X. For terms of use, please see the file
+# called LICENSE at the top level of the ICU4X source tree
+# (online at: https://github.com/unicode-org/icu4x/blob/main/LICENSE ).
+
+[package]
+name = "icu_provider_registry"
+description = "A registry of all ICU4X data markers"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords = []
+include.workspace = true
+
+[dev-dependencies]
+icu = { path = "../../components/icu", features = ["unstable"] }
+icu_provider = { workspace = true }
+
+[lints]
+workspace = true

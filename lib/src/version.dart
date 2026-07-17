@@ -3,4 +3,4 @@
 /// The repo copy stays `0.0.0` on purpose: the changelog is the single
 /// source of truth for versions, and an accidental manual publish of the
 /// placeholder can never supersede a real release.
-const packageVersion = '0.0.0';
+const packageVersion = '0.2.0';

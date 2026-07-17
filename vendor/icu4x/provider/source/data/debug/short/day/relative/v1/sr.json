@@ -1,0 +1,41 @@
+{
+  "relatives": {
+    "-2": "прекјуче",
+    "-1": "јуче",
+    "0": "данас",
+    "1": "сутра",
+    "2": "прекосутра"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "пре "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " д."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "за "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " д."
+        }
+      ]
+    ]
+  }
+}

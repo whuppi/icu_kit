@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "sem. ant.",
+    "0": "esta sem.",
+    "1": "próx. sem."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " sem."
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " sem."
+        }
+      ]
+    ]
+  }
+}

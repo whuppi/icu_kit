@@ -1,0 +1,36 @@
+{
+  "relatives": {
+    "-1": "на прошлой нед.",
+    "0": "на этой нед.",
+    "1": "на следующей нед."
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " нед. назад"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "через "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " нед."
+        }
+      ]
+    ]
+  }
+}

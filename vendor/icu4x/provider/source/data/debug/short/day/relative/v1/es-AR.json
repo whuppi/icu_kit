@@ -1,0 +1,41 @@
+{
+  "relatives": {
+    "-2": "anteayer",
+    "-1": "ayer",
+    "0": "hoy",
+    "1": "mañana",
+    "2": "pasado mañana"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "hace "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " días"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "dentro de "
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " días"
+        }
+      ]
+    ]
+  }
+}

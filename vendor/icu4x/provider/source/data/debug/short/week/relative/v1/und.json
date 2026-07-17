@@ -1,0 +1,39 @@
+{
+  "relatives": {
+    "-1": "last week",
+    "0": "this week",
+    "1": "next week"
+  },
+  "past": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "-"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " w"
+        }
+      ]
+    ]
+  },
+  "future": {
+    "other": [
+      0,
+      [
+        {
+          "Literal": "+"
+        },
+        {
+          "Placeholder": "Singleton"
+        },
+        {
+          "Literal": " w"
+        }
+      ]
+    ]
+  }
+}
